@@ -17,7 +17,6 @@ import {
   BarChart3
 } from 'lucide-react';
 import { useState } from 'react';
-import { auth } from '../firebase';
 import { User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -30,9 +29,10 @@ export default function Layout({ user }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    navigate('/login');
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    window.location.reload();
   };
 
   const menuItems = [

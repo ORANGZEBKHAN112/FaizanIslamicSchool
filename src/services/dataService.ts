@@ -1,81 +1,76 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  getDocs, 
-  query, 
-  where, 
-  onSnapshot,
-  Timestamp
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import axios from 'axios';
 
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
+const API_BASE_URL = '/api';
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
+const getEndpoint = (collectionName: string) => {
+  switch (collectionName) {
+    case 'students': return `${API_BASE_URL}/students`;
+    case 'campuses': return `${API_BASE_URL}/campuses`;
+    case 'classes': return `${API_BASE_URL}/classes`;
+    case 'staff': return `${API_BASE_URL}/staff`;
+    case 'users': return `${API_BASE_URL}/auth/register`; // For adding users
+    case 'feevouchers': return `${API_BASE_URL}/fees`;
+    case 'examterms': return `${API_BASE_URL}/exams/terms`;
+    default: return `${API_BASE_URL}/${collectionName}`;
+  }
+};
 
 export const dataService = {
   async add(collectionName: string, data: any) {
     try {
-      const docRef = await addDoc(collection(db, collectionName), {
-        ...data,
-        createdOn: new Date().toISOString()
-      });
-      return docRef.id;
+      const endpoint = getEndpoint(collectionName);
+      const response = await axios.post(endpoint, data);
+      return response.data.id || response.data;
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, collectionName);
+      console.error(`Error adding to ${collectionName}:`, error);
+      throw error;
     }
   },
 
   async update(collectionName: string, id: string, data: any) {
     try {
-      const docRef = doc(db, collectionName, id);
-      await updateDoc(docRef, data);
+      const endpoint = `${getEndpoint(collectionName)}/${id}`;
+      await axios.put(endpoint, data);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${collectionName}/${id}`);
+      console.error(`Error updating ${collectionName}:`, error);
+      throw error;
     }
   },
 
   async delete(collectionName: string, id: string) {
     try {
-      const docRef = doc(db, collectionName, id);
-      await deleteDoc(docRef);
+      const endpoint = `${getEndpoint(collectionName)}/${id}`;
+      await axios.delete(endpoint);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${id}`);
+      console.error(`Error deleting from ${collectionName}:`, error);
+      throw error;
     }
   },
 
-  subscribe(collectionName: string, callback: (data: any[]) => void, filters?: { field: string, operator: any, value: any }[]) {
-    let q = query(collection(db, collectionName));
-    
-    if (filters) {
-      filters.forEach(f => {
-        q = query(q, where(f.field, f.operator, f.value));
-      });
+  async getAll(collectionName: string, params?: any) {
+    try {
+      const endpoint = getEndpoint(collectionName);
+      const response = await axios.get(endpoint, { params });
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching from ${collectionName}:`, error);
+      throw error;
     }
+  },
 
-    return onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      callback(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, collectionName);
-    });
+  // Mocking subscribe for now since we don't have real-time backend yet
+  subscribe(collectionName: string, callback: (data: any[]) => void, filters?: any) {
+    const fetchData = async () => {
+      try {
+        const data = await this.getAll(collectionName);
+        callback(data);
+      } catch (error) {
+        console.error(`Error in subscription for ${collectionName}:`, error);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
   }
 };

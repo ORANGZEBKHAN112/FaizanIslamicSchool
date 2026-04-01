@@ -39,19 +39,7 @@ export default function StaffManagement() {
     if (editingId) {
       await dataService.update('staff', editingId, formData);
     } else {
-      const staffId = await dataService.add('staff', formData);
-      if (staffId) {
-        // Also create a user record for login
-        await dataService.add('users', {
-          fullName: formData.fullName,
-          username: formData.email.split('@')[0],
-          email: formData.email,
-          role: formData.role,
-          campusId: formData.campusId,
-          isActive: true,
-          createdOn: new Date().toISOString()
-        });
-      }
+      await dataService.add('staff', formData);
     }
     setIsModalOpen(false);
     setEditingId(null);

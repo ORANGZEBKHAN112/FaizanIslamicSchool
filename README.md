@@ -9,7 +9,7 @@ This application is built with a React frontend, Node.js (Express) backend, and 
 ## Local Setup
 1. Clone the repository.
 2. Run `npm install` to install dependencies.
-3. Configure your Firebase credentials in `firebase-applet-config.json`.
+3. Configure your local database connection in `Backend/FaizanIslamicSchool.WebApi/appsettings.json`.
 4. Run `npm run dev` to start the development server.
 
 ## IIS Deployment

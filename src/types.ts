@@ -157,3 +157,22 @@ export interface Transaction {
   transactionDate: string;
   responseLog?: string;
 }
+
+export interface LoginRequest {
+  username: string;
+  passwordHash: string;
+}
+
+export interface RegisterRequest {
+  fullName: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  campusId?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}

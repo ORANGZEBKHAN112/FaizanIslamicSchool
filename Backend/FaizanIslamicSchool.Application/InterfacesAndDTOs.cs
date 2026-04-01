@@ -45,10 +45,85 @@ namespace FaizanIslamicSchool.Application.Interfaces
         Task<bool> UpdateClassAsync(int id, UpdateClassDto classDto);
         Task<bool> DeleteClassAsync(int id);
     }
+
+    public interface IAuthService
+    {
+        Task<AuthResponseDto?> LoginAsync(LoginRequestDto loginDto);
+        Task<AuthResponseDto> RegisterAsync(RegisterRequestDto registerDto);
+        Task<UserDto?> GetCurrentUserAsync(string username);
+    }
+
+    public interface IStaffService
+    {
+        Task<IEnumerable<StaffDto>> GetAllStaffAsync();
+        Task<StaffDto?> GetStaffByIdAsync(int id);
+        Task<StaffDto> AddStaffAsync(CreateStaffDto staffDto);
+        Task<bool> UpdateStaffAsync(int id, UpdateStaffDto staffDto);
+        Task<bool> DeleteStaffAsync(int id);
+    }
 }
 
 namespace FaizanIslamicSchool.Application.DTOs
 {
+    public class UserDto
+    {
+        public int Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public int? CampusId { get; set; }
+    }
+
+    public class LoginRequestDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    public class RegisterRequestDto
+    {
+        public string FullName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string RoleName { get; set; } = "Student";
+        public int? CampusId { get; set; }
+    }
+
+    public class AuthResponseDto
+    {
+        public string Token { get; set; } = string.Empty;
+        public UserDto User { get; set; } = new();
+    }
+
+    public class StaffDto
+    {
+        public int Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string CNIC { get; set; } = string.Empty;
+        public string Qualification { get; set; } = string.Empty;
+        public decimal Salary { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public string CampusName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
+
+    public class CreateStaffDto
+    {
+        public string FullName { get; set; } = string.Empty;
+        public string CNIC { get; set; } = string.Empty;
+        public string Qualification { get; set; } = string.Empty;
+        public decimal Salary { get; set; }
+        public string RoleName { get; set; } = "Teacher";
+        public int CampusId { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = "123456";
+    }
+
+    public class UpdateStaffDto : CreateStaffDto { }
+
     public class StudentDto
     {
         public int Id { get; set; }

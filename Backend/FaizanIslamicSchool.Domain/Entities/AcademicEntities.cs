@@ -7,14 +7,13 @@ namespace FaizanIslamicSchool.Domain.Entities
     {
         public int Id { get; set; }
         public int? CampusId { get; set; }
-        public string EmployeeCode { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
-        public string? Designation { get; set; }
-        public string? Department { get; set; }
-        public string? Mobile { get; set; }
-        public string? Email { get; set; }
+        public string CNIC { get; set; } = string.Empty;
+        public string Qualification { get; set; } = string.Empty;
         public decimal Salary { get; set; }
-        public string Status { get; set; } = "Active";
+        public string Role { get; set; } = "Teacher";
+        public string Email { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
         public DateTime JoiningDate { get; set; }
         
         public Campus? Campus { get; set; }
