@@ -27,6 +27,24 @@ namespace FaizanIslamicSchool.Application.Interfaces
         Task<bool> AddMarksAsync(IEnumerable<StudentMarksDto> marksDto);
         Task<ResultCardDto> GetResultCardAsync(int studentId, int examTermId);
     }
+
+    public interface ICampusService
+    {
+        Task<IEnumerable<CampusDto>> GetAllCampusesAsync();
+        Task<CampusDto?> GetCampusByIdAsync(int id);
+        Task<CampusDto> AddCampusAsync(CreateCampusDto campusDto);
+        Task<bool> UpdateCampusAsync(int id, UpdateCampusDto campusDto);
+        Task<bool> DeleteCampusAsync(int id);
+    }
+
+    public interface IClassService
+    {
+        Task<IEnumerable<ClassDto>> GetClassesByCampusIdAsync(int campusId);
+        Task<ClassDto?> GetClassByIdAsync(int id);
+        Task<ClassDto> AddClassAsync(CreateClassDto classDto);
+        Task<bool> UpdateClassAsync(int id, UpdateClassDto classDto);
+        Task<bool> DeleteClassAsync(int id);
+    }
 }
 
 namespace FaizanIslamicSchool.Application.DTOs
@@ -80,5 +98,86 @@ namespace FaizanIslamicSchool.Application.DTOs
         public decimal Amount { get; set; }
         public string Status { get; set; } = string.Empty;
         public string Signature { get; set; } = string.Empty;
+    }
+
+    public class CampusDto
+    {
+        public int Id { get; set; }
+        public string CampusCode { get; set; } = string.Empty;
+        public string CampusName { get; set; } = string.Empty;
+        public string? Address { get; set; }
+        public string? Phone { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    public class CreateCampusDto
+    {
+        public string CampusCode { get; set; } = string.Empty;
+        public string CampusName { get; set; } = string.Empty;
+        public string? Address { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+    }
+
+    public class UpdateCampusDto : CreateCampusDto { }
+
+    public class ClassDto
+    {
+        public int Id { get; set; }
+        public int CampusId { get; set; }
+        public string ClassName { get; set; } = string.Empty;
+        public string? SectionName { get; set; }
+        public int? Capacity { get; set; }
+        public string? Shift { get; set; }
+    }
+
+    public class CreateClassDto
+    {
+        public int CampusId { get; set; }
+        public string ClassName { get; set; } = string.Empty;
+        public string? SectionName { get; set; }
+        public int? Capacity { get; set; }
+        public string? Shift { get; set; }
+    }
+
+    public class UpdateClassDto : CreateClassDto { }
+
+    public class ExamTermDto
+    {
+        public int Id { get; set; }
+        public string TermName { get; set; } = string.Empty;
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    public class StudentMarksDto
+    {
+        public int StudentId { get; set; }
+        public int ExamTermId { get; set; }
+        public string SubjectName { get; set; } = string.Empty;
+        public int TotalMarks { get; set; }
+        public int ObtainedMarks { get; set; }
+    }
+
+    public class ResultCardDto
+    {
+        public string StudentName { get; set; } = string.Empty;
+        public string RollNumber { get; set; } = string.Empty;
+        public string ClassName { get; set; } = string.Empty;
+        public string TermName { get; set; } = string.Empty;
+        public List<SubjectResultDto> Results { get; set; } = new();
+        public int TotalMarks { get; set; }
+        public int TotalObtained { get; set; }
+        public double Percentage { get; set; }
+        public string Grade { get; set; } = string.Empty;
+    }
+
+    public class SubjectResultDto
+    {
+        public string Subject { get; set; } = string.Empty;
+        public int Total { get; set; }
+        public int Obtained { get; set; }
+        public string Grade { get; set; } = string.Empty;
     }
 }

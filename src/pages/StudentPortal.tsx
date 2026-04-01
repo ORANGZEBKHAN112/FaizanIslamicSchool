@@ -58,19 +58,70 @@ export default function StudentPortal({ user }: StudentPortalProps) {
   }, [user]);
 
   const downloadVoucher = (voucher: FeeVoucher) => {
-    // Reuse the same PDF logic from FeeManagement
-    const doc = new jsPDF() as any;
+    const doc = new jsPDF();
     doc.setFontSize(20);
+    doc.setTextColor(59, 130, 246);
     doc.text(campus?.campusName || 'Faizan Islamic School', 105, 20, { align: 'center' });
     doc.setFontSize(12);
+    doc.setTextColor(100);
     doc.text('FEE VOUCHER', 105, 30, { align: 'center' });
+    
     doc.setFontSize(10);
+    doc.setTextColor(0);
     doc.text(`Voucher ID: ${voucher.id.substring(0, 8)}`, 20, 45);
     doc.text(`Student: ${student?.firstName} ${student?.lastName}`, 20, 60);
     doc.text(`Roll No: ${student?.rollNumber}`, 20, 67);
-    doc.text(`Amount: $${voucher.totalAmount}`, 20, 74);
+    doc.text(`Amount: Rs. ${voucher.totalAmount}`, 20, 74);
     doc.text(`Status: ${voucher.status}`, 20, 81);
-    doc.save(`Voucher_${voucher.voucherMonth}.pdf`);
+    
+    const tableData = [
+      ['Tuition Fee', 'Included'],
+      ['Total Amount', `Rs. ${voucher.totalAmount}`]
+    ];
+
+    (doc as any).autoTable({
+      startY: 90,
+      head: [['Description', 'Amount']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] }
+    });
+
+    doc.save(`Voucher_${voucher.voucherMonth}_${voucher.voucherYear}.pdf`);
+  };
+
+  const handlePayOnline = async (voucher: FeeVoucher) => {
+    if (!student) return;
+    
+    if (window.confirm(`Proceed to pay Rs. ${voucher.totalAmount} via QuickPay?`)) {
+      try {
+        // 1. Add Transaction
+        await dataService.add('transactions', {
+          studentId: student.id,
+          amount: voucher.totalAmount,
+          status: 'Success',
+          transactionDate: new Date().toISOString(),
+          paymentMethod: 'QuickPay'
+        });
+
+        // 2. Update Voucher
+        await dataService.update('feeVouchers', voucher.id, {
+          status: 'Paid',
+          paidAmount: voucher.totalAmount
+        });
+
+        // 3. Update Student Outstanding Fees
+        const newOutstanding = Math.max(0, (student.outstandingFees || 0) - voucher.totalAmount);
+        await dataService.update('students', student.id, {
+          outstandingFees: newOutstanding
+        });
+
+        alert('Payment successful! Your records have been updated.');
+      } catch (error) {
+        console.error('Payment error:', error);
+        alert('Payment failed. Please try again.');
+      }
+    }
   };
 
   if (!student) {
@@ -132,7 +183,7 @@ export default function StudentPortal({ user }: StudentPortalProps) {
                     {voucher.status === 'Unpaid' && (
                       <button 
                         className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
-                        onClick={() => alert('QuickPay integration coming soon!')}
+                        onClick={() => handlePayOnline(voucher)}
                       >
                         Pay Online
                       </button>

@@ -71,6 +71,13 @@ export default function FeeManagement() {
             status: 'Unpaid',
             generatedOn: new Date().toISOString()
           });
+
+          // Update student outstanding fees
+          const newOutstanding = (student.outstandingFees || 0) + totalAmount;
+          await dataService.update('students', student.id, {
+            outstandingFees: newOutstanding
+          });
+
           count++;
         }
       }
@@ -80,10 +87,27 @@ export default function FeeManagement() {
 
   const markAsPaid = async (voucher: FeeVoucher) => {
     if (window.confirm('Mark this voucher as paid?')) {
-      await dataService.update('feeVouchers', voucher.id, {
-        status: 'Paid',
-        paidAmount: voucher.totalAmount
-      });
+      try {
+        // 1. Update Voucher
+        await dataService.update('feeVouchers', voucher.id, {
+          status: 'Paid',
+          paidAmount: voucher.totalAmount
+        });
+
+        // 2. Update Student Outstanding Fees
+        const student = students.find(s => s.id === voucher.studentId);
+        if (student) {
+          const newOutstanding = Math.max(0, (student.outstandingFees || 0) - voucher.totalAmount);
+          await dataService.update('students', student.id, {
+            outstandingFees: newOutstanding
+          });
+        }
+        
+        alert('Voucher marked as paid and student balance updated.');
+      } catch (error) {
+        console.error('Error marking as paid:', error);
+        alert('Failed to update voucher.');
+      }
     }
   };
 
@@ -92,19 +116,23 @@ export default function FeeManagement() {
     const campus = campuses.find(c => c.id === voucher.campusId);
     const cls = classes.find(c => c.id === student?.classId);
 
-    const doc = new jsPDF() as any;
+    const doc = new jsPDF();
     
     // Header
     doc.setFontSize(20);
+    doc.setTextColor(59, 130, 246);
     doc.text(campus?.campusName || 'Faizan Islamic School', 105, 20, { align: 'center' });
     doc.setFontSize(12);
+    doc.setTextColor(100);
     doc.text('FEE VOUCHER', 105, 30, { align: 'center' });
     
     // Student Info
     doc.setFontSize(10);
+    doc.setTextColor(0);
     doc.text(`Voucher ID: ${voucher.id.substring(0, 8)}`, 20, 45);
     doc.text(`Date: ${new Date(voucher.generatedOn).toLocaleDateString()}`, 150, 45);
     
+    doc.setDrawColor(200);
     doc.line(20, 50, 190, 50);
     
     doc.text(`Student Name: ${student?.firstName} ${student?.lastName}`, 20, 60);
@@ -116,24 +144,79 @@ export default function FeeManagement() {
     // Table
     const structure = feeStructures.find(f => f.campusId === student?.campusId && f.classId === student?.classId);
     const tableData = [
-      ['Tuition Fee', `$${structure?.tuitionFee || 0}`],
-      ['Transport Fee', `$${structure?.transportFee || 0}`],
-      ['Misc Charges', `$${structure?.miscFee || 0}`],
-      ['Total Amount', `$${voucher.totalAmount}`]
+      ['Tuition Fee', `Rs. ${structure?.tuitionFee || 0}`],
+      ['Transport Fee', `Rs. ${structure?.transportFee || 0}`],
+      ['Misc Charges', `Rs. ${structure?.miscFee || 0}`],
+      ['Total Amount', `Rs. ${voucher.totalAmount}`]
     ];
 
-    doc.autoTable({
+    (doc as any).autoTable({
       startY: 85,
       head: [['Description', 'Amount']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillStyle: [59, 130, 246] }
+      headStyles: { fillColor: [59, 130, 246] },
+      styles: { fontSize: 10 }
     });
 
-    doc.text(`Status: ${voucher.status}`, 20, doc.lastAutoTable.finalY + 15);
-    doc.text('Authorized Signature: ____________________', 120, doc.lastAutoTable.finalY + 30);
+    const finalY = (doc as any).lastAutoTable.finalY;
+    doc.setFontSize(11);
+    doc.text(`Status: ${voucher.status}`, 20, finalY + 15);
+    doc.text('Authorized Signature: ____________________', 120, finalY + 30);
 
     doc.save(`Voucher_${student?.rollNumber}_${voucher.voucherMonth}.pdf`);
+  };
+
+  const downloadAllVouchers = () => {
+    if (filteredVouchers.length === 0) {
+      alert('No vouchers to download.');
+      return;
+    }
+    
+    const doc = new jsPDF();
+    let currentY = 20;
+
+    filteredVouchers.forEach((voucher, index) => {
+      const student = students.find(s => s.id === voucher.studentId);
+      const campus = campuses.find(c => c.id === voucher.campusId);
+      const cls = classes.find(c => c.id === student?.classId);
+
+      if (index > 0) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      doc.setFontSize(18);
+      doc.setTextColor(59, 130, 246);
+      doc.text(campus?.campusName || 'Faizan Islamic School', 105, currentY, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text(`Voucher: ${voucher.id.substring(0, 8)}`, 20, currentY + 15);
+      doc.text(`Student: ${student?.firstName} ${student?.lastName} (${student?.rollNumber})`, 20, currentY + 22);
+      doc.text(`Class: ${cls?.className}`, 20, currentY + 29);
+      doc.text(`Amount: Rs. ${voucher.totalAmount}`, 150, currentY + 22);
+      doc.text(`Due: ${voucher.dueDate}`, 150, currentY + 29);
+      
+      const structure = feeStructures.find(f => f.campusId === student?.campusId && f.classId === student?.classId);
+      const tableData = [
+        ['Tuition Fee', `Rs. ${structure?.tuitionFee || 0}`],
+        ['Transport Fee', `Rs. ${structure?.transportFee || 0}`],
+        ['Misc Charges', `Rs. ${structure?.miscFee || 0}`],
+        ['Total Amount', `Rs. ${voucher.totalAmount}`]
+      ];
+
+      (doc as any).autoTable({
+        startY: currentY + 35,
+        head: [['Description', 'Amount']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+        margin: { left: 20, right: 20 }
+      });
+    });
+
+    doc.save(`Bulk_Vouchers_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const filteredVouchers = vouchers.filter(v => {
@@ -171,6 +254,13 @@ export default function FeeManagement() {
           >
             <AlertCircle className="w-5 h-5" />
             Fee Structures
+          </button>
+          <button
+            onClick={downloadAllVouchers}
+            className="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 flex items-center gap-2"
+          >
+            <Download className="w-5 h-5" />
+            Bulk Download
           </button>
           <button
             onClick={generateVouchers}

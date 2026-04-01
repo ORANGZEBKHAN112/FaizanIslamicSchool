@@ -73,4 +73,86 @@ namespace FaizanIslamicSchool.Infrastructure.Persistence
             return await _context.SaveChangesAsync() > 0;
         }
     }
+
+    public class CampusRepository : ICampusRepository
+    {
+        private readonly ApplicationDbContext _context;
+
+        public CampusRepository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<Campus>> GetAllAsync()
+        {
+            return await _context.Campuses.ToListAsync();
+        }
+
+        public async Task<Campus?> GetByIdAsync(int id)
+        {
+            return await _context.Campuses.FindAsync(id);
+        }
+
+        public async Task<Campus> AddAsync(Campus campus)
+        {
+            _context.Campuses.Add(campus);
+            await _context.SaveChangesAsync();
+            return campus;
+        }
+
+        public async Task<bool> UpdateAsync(Campus campus)
+        {
+            _context.Campuses.Update(campus);
+            return await _context.SaveChangesAsync() > 0;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var campus = await _context.Campuses.FindAsync(id);
+            if (campus == null) return false;
+            _context.Campuses.Remove(campus);
+            return await _context.SaveChangesAsync() > 0;
+        }
+    }
+
+    public class ClassRepository : IClassRepository
+    {
+        private readonly ApplicationDbContext _context;
+
+        public ClassRepository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<Class>> GetByCampusIdAsync(int campusId)
+        {
+            return await _context.Classes.Where(c => c.CampusId == campusId).ToListAsync();
+        }
+
+        public async Task<Class?> GetByIdAsync(int id)
+        {
+            return await _context.Classes.FindAsync(id);
+        }
+
+        public async Task<Class> AddAsync(Class cls)
+        {
+            _context.Classes.Add(cls);
+            await _context.SaveChangesAsync();
+            return cls;
+        }
+
+        public async Task<bool> UpdateAsync(Class cls)
+        {
+            _context.Classes.Update(cls);
+            return await _context.SaveChangesAsync() > 0;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var cls = await _context.Classes.FindAsync(id);
+            if (cls == null) return false;
+            _context.Classes.Remove(cls);
+            return await _context.SaveChangesAsync() > 0;
+        }
+    }
 }
