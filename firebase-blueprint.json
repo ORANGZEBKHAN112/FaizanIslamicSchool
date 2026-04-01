@@ -1,0 +1,216 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user with role-based access.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["Super Admin", "Campus Admin", "Teacher", "Accountant", "Student"] },
+        "campusId": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdOn": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "username", "role"]
+    },
+    "Campus": {
+      "title": "Campus",
+      "description": "A school campus.",
+      "type": "object",
+      "properties": {
+        "campusCode": { "type": "string" },
+        "campusName": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdOn": { "type": "string", "format": "date-time" }
+      },
+      "required": ["campusCode", "campusName"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "A class within a campus.",
+      "type": "object",
+      "properties": {
+        "campusId": { "type": "string" },
+        "className": { "type": "string" },
+        "sectionName": { "type": "string" },
+        "capacity": { "type": "integer" },
+        "shift": { "type": "string" }
+      },
+      "required": ["campusId", "className"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "A student registered in a campus.",
+      "type": "object",
+      "properties": {
+        "campusId": { "type": "string" },
+        "classId": { "type": "string" },
+        "rollNumber": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "dateOfBirth": { "type": "string", "format": "date" },
+        "gender": { "type": "string" },
+        "mobile": { "type": "string" },
+        "address": { "type": "string" },
+        "admissionDate": { "type": "string", "format": "date" },
+        "profileImage": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Left", "Graduated"] }
+      },
+      "required": ["campusId", "classId", "rollNumber", "firstName"]
+    },
+    "FeeStructure": {
+      "title": "Fee Structure",
+      "description": "Fee configuration for a campus and class.",
+      "type": "object",
+      "properties": {
+        "campusId": { "type": "string" },
+        "classId": { "type": "string" },
+        "tuitionFee": { "type": "number" },
+        "admissionFee": { "type": "number" },
+        "examFee": { "type": "number" },
+        "transportFee": { "type": "number" },
+        "miscFee": { "type": "number" }
+      },
+      "required": ["campusId", "classId"]
+    },
+    "FeeVoucher": {
+      "title": "Fee Voucher",
+      "description": "A monthly fee voucher for a student.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "campusId": { "type": "string" },
+        "voucherMonth": { "type": "integer" },
+        "voucherYear": { "type": "integer" },
+        "dueDate": { "type": "string", "format": "date" },
+        "totalAmount": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Paid", "Unpaid"] },
+        "generatedOn": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "voucherMonth", "voucherYear", "totalAmount"]
+    },
+    "Exam": {
+      "title": "Exam",
+      "description": "An examination event.",
+      "type": "object",
+      "properties": {
+        "campusId": { "type": "string" },
+        "examName": { "type": "string" },
+        "examDate": { "type": "string", "format": "date" },
+        "totalMarks": { "type": "integer" }
+      },
+      "required": ["campusId", "examName"]
+    },
+    "StudentResult": {
+      "title": "Student Result",
+      "description": "Result of a student in an exam.",
+      "type": "object",
+      "properties": {
+        "examId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "obtainedMarks": { "type": "number" },
+        "totalMarks": { "type": "number" },
+        "grade": { "type": "string" },
+        "remarks": { "type": "string" }
+      },
+      "required": ["examId", "studentId", "subjectName"]
+    },
+    "Staff": {
+      "title": "Staff",
+      "description": "School staff members.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "cnic": { "type": "string" },
+        "qualification": { "type": "string" },
+        "salary": { "type": "number" },
+        "joiningDate": { "type": "string", "format": "date" },
+        "campusId": { "type": "string" },
+        "role": { "type": "string" },
+        "email": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "profileImage": { "type": "string" }
+      },
+      "required": ["fullName", "cnic", "salary", "campusId", "role", "email"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transactions for fee payments.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "voucherId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Success", "Failed"] },
+        "transactionDate": { "type": "string", "format": "date-time" },
+        "responseLog": { "type": "string" }
+      },
+      "required": ["studentId", "voucherId", "amount", "status"]
+    },
+    "QuickPayConfig": {
+      "title": "QuickPay Config",
+      "description": "Configuration for QuickPay payment gateway.",
+      "type": "object",
+      "properties": {
+        "merchantId": { "type": "string" },
+        "apiKey": { "type": "string" },
+        "callbackUrl": { "type": "string" },
+        "mode": { "type": "string", "enum": ["Sandbox", "Live"] },
+        "isEnabled": { "type": "boolean" }
+      },
+      "required": ["merchantId", "apiKey"]
+    },
+    "DateSheet": {
+      "title": "Date Sheet",
+      "description": "Exam schedule for a class.",
+      "type": "object",
+      "properties": {
+        "examId": { "type": "string" },
+        "classId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "examDate": { "type": "string", "format": "date" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "roomNo": { "type": "string" },
+        "invigilatorId": { "type": "string" }
+      },
+      "required": ["examId", "classId", "subjectName", "examDate"]
+    },
+    "GradePolicy": {
+      "title": "Grade Policy",
+      "description": "Grading criteria for exams.",
+      "type": "object",
+      "properties": {
+        "minPercentage": { "type": "number" },
+        "maxPercentage": { "type": "number" },
+        "grade": { "type": "string" },
+        "gpa": { "type": "number" },
+        "remarks": { "type": "string" }
+      },
+      "required": ["minPercentage", "maxPercentage", "grade", "gpa"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "System users." },
+    "/campuses/{campusId}": { "schema": "Campus", "description": "School campuses." },
+    "/classes/{classId}": { "schema": "Class", "description": "Classes within campuses." },
+    "/students/{studentId}": { "schema": "Student", "description": "Registered students." },
+    "/feeStructures/{structureId}": { "schema": "FeeStructure", "description": "Fee structures." },
+    "/feeVouchers/{voucherId}": { "schema": "FeeVoucher", "description": "Monthly fee vouchers." },
+    "/exams/{examId}": { "schema": "Exam", "description": "Examination events." },
+    "/studentResults/{resultId}": { "schema": "StudentResult", "description": "Student exam results." },
+    "/staff/{staffId}": { "schema": "Staff", "description": "School staff members." },
+    "/transactions/{transactionId}": { "schema": "Transaction", "description": "Financial transactions." },
+    "/quickPayConfigs/{configId}": { "schema": "QuickPayConfig", "description": "QuickPay configuration." },
+    "/dateSheets/{dateSheetId}": { "schema": "DateSheet", "description": "Exam schedules." },
+    "/gradePolicies/{policyId}": { "schema": "GradePolicy", "description": "Grading policies." }
+  }
+}

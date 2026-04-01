@@ -1,11 +1,34 @@
-<div align="center">
+# EduPro School Management System - Setup Guide
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+This application is built with a React frontend, Node.js (Express) backend, and Firebase (Firestore + Auth).
 
-  <h1>Built with AI Studio</h2>
+## Prerequisites
+- Node.js 18+
+- Firebase Project
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Local Setup
+1. Clone the repository.
+2. Run `npm install` to install dependencies.
+3. Configure your Firebase credentials in `firebase-applet-config.json`.
+4. Run `npm run dev` to start the development server.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## IIS Deployment
+1. Build the project: `npm run build`.
+2. Copy the contents of the `dist` folder to your IIS site directory.
+3. Ensure the `web.config` file is present in the root of the IIS site.
+4. Install the **IIS URL Rewrite Module** on your server.
+5. Configure the backend API (if running separately) or use the integrated Express server.
 
-</div>
+## Initial Admin Setup
+1. Open the application and login with Google.
+2. The first user to login will automatically be assigned the **Super Admin** role.
+3. You can then create campuses, classes, and register students.
+
+## Features
+- Multi-campus support
+- Role-based access control
+- Student registration and profile management
+- Fee voucher generation and tracking
+- Examination result management
+- PDF generation for vouchers and results
+- Responsive admin dashboard
