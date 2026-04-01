@@ -20,7 +20,8 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(response.user));
       window.location.reload();
     } catch (err: any) {
-      setError(err.response?.data || 'Authentication failed');
+      const errorMessage = err.response?.data?.message || err.response?.data || 'Authentication failed';
+      setError(typeof errorMessage === 'string' ? errorMessage : 'Authentication failed');
     } finally {
       setLoading(false);
     }

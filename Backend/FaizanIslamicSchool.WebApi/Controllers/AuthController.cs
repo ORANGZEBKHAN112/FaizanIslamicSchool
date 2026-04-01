@@ -19,16 +19,30 @@ namespace FaizanIslamicSchool.WebApi.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginRequestDto loginDto)
         {
-            var response = await _authService.LoginAsync(loginDto);
-            if (response == null) return Unauthorized("Invalid username or password");
-            return Ok(response);
+            try
+            {
+                var response = await _authService.LoginAsync(loginDto);
+                if (response == null) return Unauthorized(new { message = "Invalid username or password" });
+                return Ok(response);
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred during login", detailed = ex.Message });
+            }
         }
 
         [HttpPost("register")]
         public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterRequestDto registerDto)
         {
-            var response = await _authService.RegisterAsync(registerDto);
-            return Ok(response);
+            try
+            {
+                var response = await _authService.RegisterAsync(registerDto);
+                return Ok(response);
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred during registration", detailed = ex.Message });
+            }
         }
 
         [HttpGet("me/{username}")]

@@ -3,15 +3,20 @@ import axios from 'axios';
 const API_BASE_URL = '/api';
 
 const getEndpoint = (collectionName: string) => {
-  switch (collectionName) {
+  const name = collectionName.toLowerCase();
+  switch (name) {
     case 'students': return `${API_BASE_URL}/students`;
     case 'campuses': return `${API_BASE_URL}/campuses`;
     case 'classes': return `${API_BASE_URL}/classes`;
     case 'staff': return `${API_BASE_URL}/staff`;
-    case 'users': return `${API_BASE_URL}/auth/register`; // For adding users
-    case 'feevouchers': return `${API_BASE_URL}/fees`;
-    case 'examterms': return `${API_BASE_URL}/exams/terms`;
-    default: return `${API_BASE_URL}/${collectionName}`;
+    case 'users': return `${API_BASE_URL}/auth/register`;
+    case 'feevouchers': return `${API_BASE_URL}/feevouchers`;
+    case 'feestructures': return `${API_BASE_URL}/feestructures`;
+    case 'examterms': return `${API_BASE_URL}/examterms`;
+    case 'exams': return `${API_BASE_URL}/exams`;
+    case 'studentresults': return `${API_BASE_URL}/studentresults`;
+    case 'transactions': return `${API_BASE_URL}/transactions`;
+    default: return `${API_BASE_URL}/${name}`;
   }
 };
 
@@ -20,7 +25,7 @@ export const dataService = {
     try {
       const endpoint = getEndpoint(collectionName);
       const response = await axios.post(endpoint, data);
-      return response.data.id || response.data;
+      return response.data;
     } catch (error) {
       console.error(`Error adding to ${collectionName}:`, error);
       throw error;
@@ -51,10 +56,10 @@ export const dataService = {
     try {
       const endpoint = getEndpoint(collectionName);
       const response = await axios.get(endpoint, { params });
-      return response.data;
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error(`Error fetching from ${collectionName}:`, error);
-      throw error;
+      return [];
     }
   },
 
@@ -63,9 +68,19 @@ export const dataService = {
     const fetchData = async () => {
       try {
         const data = await this.getAll(collectionName);
-        callback(data);
+        // Apply basic client-side filtering if filters are provided
+        let filteredData = data;
+        if (filters && Array.isArray(filters)) {
+          filters.forEach(filter => {
+            if (filter.operator === '==') {
+              filteredData = filteredData.filter((item: any) => item[filter.field] === filter.value);
+            }
+          });
+        }
+        callback(filteredData);
       } catch (error) {
         console.error(`Error in subscription for ${collectionName}:`, error);
+        callback([]);
       }
     };
 
