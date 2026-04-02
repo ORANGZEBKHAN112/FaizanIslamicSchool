@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, ShieldCheck, UserCircle, Filter, Mail, Phone, Calendar, CreditCard, XCircle, Briefcase, GraduationCap, DollarSign, CheckCircle2, School } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, ShieldCheck, UserCircle, Filter, Mail, Phone, Calendar, CreditCard, XCircle, Briefcase, GraduationCap, Banknote, CheckCircle2, School } from 'lucide-react';
 import { Staff, Campus, UserRole } from '../types';
 import { dataService } from '../services/dataService';
 import { motion, AnimatePresence } from 'motion/react';
@@ -205,7 +205,7 @@ export default function StaffManagement() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2 text-slate-900 dark:text-white font-black">
-                      <DollarSign className="w-4 h-4 text-success" />
+                      <Banknote className="w-4 h-4 text-success" />
                       Rs. {s.salary.toLocaleString()}
                     </div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Monthly Salary</div>
@@ -328,7 +328,7 @@ export default function StaffManagement() {
                   <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Salary (Rs.)</label>
                     <div className="relative">
-                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input type="number" required className="vibrant-input pl-12" value={formData.salary} onChange={(e) => setFormData({ ...formData, salary: Number(e.target.value) })} placeholder="0" />
                     </div>
                   </div>

@@ -69,7 +69,7 @@ export default function Dashboard({ user }: DashboardProps) {
         const online = data.filter(t => t.status === 'Success').reduce((acc, t) => acc + t.amount, 0);
         setStats(prev => ({ ...prev, onlineCollections: online }));
         
-        // Add to recent activity
+        // Add to recent activity - replace instead of appending to avoid duplicates during polling
         const activities = data.slice(-5).reverse().map(t => ({
           id: t.id,
           type: 'Payment',
@@ -78,7 +78,7 @@ export default function Dashboard({ user }: DashboardProps) {
           icon: CreditCard,
           color: 'text-green-500'
         }));
-        setRecentActivity(prev => [...activities, ...prev].slice(0, 5));
+        setRecentActivity(activities);
       });
 
       const unsubVouchers = dataService.subscribe('feevouchers', (data: FeeVoucher[]) => {
@@ -236,8 +236,10 @@ export default function Dashboard({ user }: DashboardProps) {
                   axisLine={false} 
                   tickLine={false} 
                   tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} 
+                  tickFormatter={(value) => `Rs. ${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}`}
                 />
                 <Tooltip 
+                  formatter={(value: any) => [`Rs. ${value.toLocaleString()}`, '']}
                   contentStyle={{ 
                     borderRadius: '24px', 
                     border: 'none', 

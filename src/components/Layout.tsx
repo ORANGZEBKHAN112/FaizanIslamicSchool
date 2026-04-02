@@ -7,7 +7,7 @@ import {
   Users, 
   CreditCard, 
   FileText, 
-  DollarSign,
+  Banknote,
   LogOut,
   User as UserIcon,
   Menu,
@@ -74,7 +74,7 @@ export default function Layout({ user }: LayoutProps) {
     { name: 'QuickPay Setup', path: '/quickpay', icon: Settings, roles: ['Super Admin', 'Admin'] },
     { name: 'Exams', path: '/exams', icon: FileText, roles: ['Super Admin', 'Admin', 'Teacher'] },
     { name: 'Inventory', path: '/inventory', icon: Package, roles: ['Super Admin', 'Admin'] },
-    { name: 'Payroll', path: '/payroll', icon: DollarSign, roles: ['Super Admin', 'Admin'] },
+    { name: 'Payroll', path: '/payroll', icon: Banknote, roles: ['Super Admin', 'Admin'] },
     { name: 'Activity Logs', path: '/activity-logs', icon: HistoryIcon, roles: ['Super Admin', 'Admin'] },
     { name: 'My Portal', path: '/portal', icon: UserIcon, roles: ['Student'] },
   ].filter(item => item.roles.includes(user.role));

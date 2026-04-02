@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User, Student, FeeVoucher, StudentResult, Exam, Campus, Class } from '../types';
+import { User, Student, FeeVoucher, StudentResult, Exam, Campus, Class, FeeStructure } from '../types';
 import { dataService } from '../services/dataService';
 import { 
   User as UserIcon, 
@@ -18,6 +18,7 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 interface StudentPortalProps {
   user: User;
@@ -26,6 +27,7 @@ interface StudentPortalProps {
 export default function StudentPortal({ user }: StudentPortalProps) {
   const [student, setStudent] = useState<Student | null>(null);
   const [vouchers, setVouchers] = useState<FeeVoucher[]>([]);
+  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [results, setResults] = useState<StudentResult[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [campus, setCampus] = useState<Campus | null>(null);
@@ -60,41 +62,52 @@ export default function StudentPortal({ user }: StudentPortalProps) {
     });
 
     dataService.subscribe('exams', setExams);
+    dataService.subscribe('feestructures', setFeeStructures);
 
     return () => unsubStudents();
   }, [user]);
 
   const downloadVoucher = (voucher: FeeVoucher) => {
     const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.setTextColor(0, 169, 157); // FISS Teal
-    doc.text(campus?.campusName || 'Faizan Islamic School', 105, 20, { align: 'center' });
-    doc.setFontSize(12);
+    const structure = feeStructures.find(fs => fs.classId === student?.classId && fs.campusId === student?.campusId);
+
+    doc.setFontSize(22);
+    doc.setTextColor(0, 59, 92); // FISS Navy
+    doc.text(campus?.campusName || 'FAIZAN ISLAMIC SCHOOL', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(14);
     doc.setTextColor(100);
     doc.text('FEE VOUCHER', 105, 30, { align: 'center' });
-    
+    doc.text(`${new Date(voucher.voucherYear, voucher.voucherMonth - 1).toLocaleString('default', { month: 'long' })} ${voucher.voucherYear}`, 105, 38, { align: 'center' });
+
     doc.setFontSize(10);
     doc.setTextColor(0);
-    doc.text(`Voucher ID: ${voucher.id.substring(0, 8)}`, 20, 45);
-    doc.text(`Student: ${student?.firstName} ${student?.lastName}`, 20, 60);
-    doc.text(`Roll No: ${student?.rollNumber}`, 20, 67);
-    doc.text(`Amount: Rs. ${voucher.totalAmount}`, 20, 74);
-    doc.text(`Status: ${voucher.status}`, 20, 81);
-    
+    doc.text(`Student Name: ${student?.firstName} ${student?.lastName}`, 20, 55);
+    doc.text(`Roll Number: ${student?.rollNumber}`, 20, 62);
+    doc.text(`Voucher ID: ${voucher.id.substring(0, 8).toUpperCase()}`, 150, 55);
+    doc.text(`Due Date: ${voucher.dueDate}`, 150, 62);
+
     const tableData = [
-      ['Tuition Fee', 'Included'],
-      ['Total Amount', `Rs. ${voucher.totalAmount}`]
+      ['Tuition Fee', `Rs. ${structure?.tuitionFee?.toLocaleString() || '0'}`],
+      ['Admission Fee', `Rs. ${structure?.admissionFee?.toLocaleString() || '0'}`],
+      ['Exam Fee', `Rs. ${structure?.examFee?.toLocaleString() || '0'}`],
+      ['Transport Fee', `Rs. ${structure?.transportFee?.toLocaleString() || '0'}`],
+      ['Misc. Fee', `Rs. ${structure?.miscFee?.toLocaleString() || '0'}`],
+      [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.totalAmount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
     ];
 
     autoTable(doc, {
-      startY: 90,
-      head: [['Description', 'Amount']],
+      startY: 75,
+      head: [['Description', 'Amount (PKR)']],
       body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [0, 169, 157] }
+      theme: 'striped',
+      headStyles: { fillColor: [0, 169, 157] },
     });
 
-    doc.save(`Voucher_${voucher.voucherMonth}_${voucher.voucherYear}.pdf`);
+    doc.text('Bank Stamp / Signature', 20, (doc as any).lastAutoTable.finalY + 30);
+    doc.line(20, (doc as any).lastAutoTable.finalY + 25, 70, (doc as any).lastAutoTable.finalY + 25);
+
+    doc.save(`Voucher_${student?.rollNumber}_${voucher.voucherMonth}_${voucher.voucherYear}.pdf`);
   };
 
   const startQuickPay = (voucher: FeeVoucher) => {
@@ -130,9 +143,10 @@ export default function StudentPortal({ user }: StudentPortalProps) {
       });
 
       setPaymentStep('success');
+      toast.success('Payment processed successfully!');
     } catch (error) {
       console.error('Payment error:', error);
-      alert('Payment failed. Please try again.');
+      toast.error('Payment failed. Please try again.');
       setPaymentStep('details');
     }
   };

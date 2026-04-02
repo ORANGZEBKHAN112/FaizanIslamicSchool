@@ -197,15 +197,17 @@ export default function FeeManagement() {
     // Table
     const structure = feeStructures.find(f => f.campusId === student?.campusId && f.classId === student?.classId);
     const tableData = [
-      ['Tuition Fee', `Rs. ${structure?.tuitionFee || 0}`],
-      ['Transport Fee', `Rs. ${structure?.transportFee || 0}`],
-      ['Misc Charges', `Rs. ${structure?.miscFee || 0}`],
-      ['Total Amount', `Rs. ${voucher.totalAmount}`]
+      ['Tuition Fee', `Rs. ${structure?.tuitionFee?.toLocaleString() || '0'}`],
+      ['Admission Fee', `Rs. ${structure?.admissionFee?.toLocaleString() || '0'}`],
+      ['Exam Fee', `Rs. ${structure?.examFee?.toLocaleString() || '0'}`],
+      ['Transport Fee', `Rs. ${structure?.transportFee?.toLocaleString() || '0'}`],
+      ['Misc. Fee', `Rs. ${structure?.miscFee?.toLocaleString() || '0'}`],
+      [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.totalAmount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
     ];
 
     autoTable(doc, {
       startY: 85,
-      head: [['Description', 'Amount']],
+      head: [['Description', 'Amount (PKR)']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [0, 169, 157] },
@@ -253,19 +255,22 @@ export default function FeeManagement() {
       
       const structure = feeStructures.find(f => f.campusId === student?.campusId && f.classId === student?.classId);
       const tableData = [
-        ['Tuition Fee', `Rs. ${structure?.tuitionFee || 0}`],
-        ['Transport Fee', `Rs. ${structure?.transportFee || 0}`],
-        ['Misc Charges', `Rs. ${structure?.miscFee || 0}`],
-        ['Total Amount', `Rs. ${voucher.totalAmount}`]
+        ['Tuition Fee', `Rs. ${structure?.tuitionFee?.toLocaleString() || '0'}`],
+        ['Admission Fee', `Rs. ${structure?.admissionFee?.toLocaleString() || '0'}`],
+        ['Exam Fee', `Rs. ${structure?.examFee?.toLocaleString() || '0'}`],
+        ['Transport Fee', `Rs. ${structure?.transportFee?.toLocaleString() || '0'}`],
+        ['Misc. Fee', `Rs. ${structure?.miscFee?.toLocaleString() || '0'}`],
+        [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.totalAmount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
       ];
 
       autoTable(doc, {
         startY: currentY + 35,
-        head: [['Description', 'Amount']],
+        head: [['Description', 'Amount (PKR)']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] },
-        margin: { left: 20, right: 20 }
+        headStyles: { fillColor: [0, 169, 157] },
+        margin: { left: 20, right: 20 },
+        styles: { fontSize: 10 }
       });
     });
 

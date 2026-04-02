@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DollarSign, Plus, Search, Download, FileText, CheckCircle, Clock, XCircle, User as UserIcon, Calendar, Briefcase, TrendingUp, Filter } from 'lucide-react';
+import { Banknote, Plus, Search, Download, FileText, CheckCircle, Clock, XCircle, User as UserIcon, Calendar, Briefcase, TrendingUp, Filter } from 'lucide-react';
 import { SalarySlip, User } from '../types';
 import { dataService } from '../services/dataService';
 import { motion, AnimatePresence } from 'motion/react';
@@ -75,7 +75,7 @@ export default function StaffPayroll() {
     const staffMember = staff.find(s => s.id === slip.staffId);
     
     doc.setFontSize(22);
-    doc.setTextColor(99, 102, 241); // Indigo
+    doc.setTextColor(0, 59, 92); // FISS Navy
     doc.text('FAIZAN ISLAMIC SCHOOL', 105, 20, { align: 'center' });
     
     doc.setFontSize(14);
@@ -94,13 +94,13 @@ export default function StaffPayroll() {
       startY: 75,
       head: [['Description', 'Amount (PKR)']],
       body: [
-        ['Basic Salary', slip.basicSalary.toLocaleString()],
-        ['Allowances', slip.allowances.toLocaleString()],
-        ['Deductions', `-${slip.deductions.toLocaleString()}`],
-        [{ content: 'Net Salary', styles: { fontStyle: 'bold' } }, { content: slip.netSalary.toLocaleString(), styles: { fontStyle: 'bold' } }],
+        ['Basic Salary', `Rs. ${slip.basicSalary.toLocaleString()}`],
+        ['Allowances', `Rs. ${slip.allowances.toLocaleString()}`],
+        ['Deductions', `Rs. -${slip.deductions.toLocaleString()}`],
+        [{ content: 'Net Salary', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${slip.netSalary.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
       ],
       theme: 'striped',
-      headStyles: { fillColor: [99, 102, 241] },
+      headStyles: { fillColor: [0, 169, 157] },
     });
 
     doc.text('Authorized Signature', 150, (doc as any).lastAutoTable.finalY + 30);
@@ -181,7 +181,7 @@ export default function StaffPayroll() {
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-2 text-slate-900 dark:text-white font-black text-lg tracking-tight">
-                        <DollarSign className="w-4 h-4 text-success" />
+                        <Banknote className="w-4 h-4 text-success" />
                         Rs. {slip.netSalary.toLocaleString()}
                       </div>
                     </td>
