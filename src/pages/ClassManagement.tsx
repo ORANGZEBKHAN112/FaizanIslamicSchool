@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, BookOpen } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, BookOpen, XCircle } from 'lucide-react';
 import { Class, Campus } from '../types';
 import { dataService } from '../services/dataService';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 export default function ClassManagement() {
   const [classes, setClasses] = useState<Class[]>([]);
@@ -30,14 +31,32 @@ export default function ClassManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      await dataService.update('classes', editingId, formData);
-    } else {
-      await dataService.add('classes', formData);
+    
+    // Validation
+    if (!formData.campusId) {
+      toast.error('Please select a campus');
+      return;
     }
-    setIsModalOpen(false);
-    setEditingId(null);
-    setFormData({ campusId: '', className: '', sectionName: '', capacity: 40, shift: 'Morning' });
+    if (!formData.className.trim()) {
+      toast.error('Class name is required');
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await dataService.update('classes', editingId, formData);
+        toast.success('Class updated successfully');
+      } else {
+        await dataService.add('classes', formData);
+        toast.success('Class added successfully');
+      }
+      setIsModalOpen(false);
+      setEditingId(null);
+      setFormData({ campusId: '', className: '', sectionName: '', capacity: 40, shift: 'Morning' });
+    } catch (error) {
+      console.error('Error saving class:', error);
+      toast.error('Failed to save class');
+    }
   };
 
   const handleEdit = (cls: Class) => {
@@ -54,7 +73,13 @@ export default function ClassManagement() {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this class?')) {
-      await dataService.delete('classes', id);
+      try {
+        await dataService.delete('classes', id);
+        toast.success('Class deleted successfully');
+      } catch (error) {
+        console.error('Error deleting class:', error);
+        toast.error('Failed to delete class');
+      }
     }
   };
 
@@ -65,36 +90,41 @@ export default function ClassManagement() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-gray-900">Class Management</h2>
-        <button
+    <div className="space-y-8 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div>
+          <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Class Management</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Define and organize school classes and sections.</p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.02, y: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => {
             setEditingId(null);
             setFormData({ campusId: '', className: '', sectionName: '', capacity: 40, shift: 'Morning' });
             setIsModalOpen(true);
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors w-fit"
+          className="vibrant-btn-primary px-8 py-4 rounded-2xl flex items-center gap-2 shadow-xl shadow-primary/20 text-[10px] font-black uppercase tracking-widest"
         >
           <Plus className="w-5 h-5" />
           Add New Class
-        </button>
+        </motion.button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-4">
-          <div className="relative flex-1 w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <div className="vibrant-card overflow-hidden">
+        <div className="p-8 border-b border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
             <input
               type="text"
               placeholder="Search classes..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="vibrant-input pl-12"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select
-            className="w-full sm:w-64 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className="vibrant-input appearance-none"
             value={selectedCampus}
             onChange={(e) => setSelectedCampus(e.target.value)}
           >
@@ -108,44 +138,55 @@ export default function ClassManagement() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
-                <th className="px-6 py-4 font-semibold">Class Name</th>
-                <th className="px-6 py-4 font-semibold">Section</th>
-                <th className="px-6 py-4 font-semibold">Campus</th>
-                <th className="px-6 py-4 font-semibold">Capacity</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
+              <tr className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                <th className="px-8 py-5">Class Name</th>
+                <th className="px-8 py-5">Section</th>
+                <th className="px-8 py-5">Campus</th>
+                <th className="px-8 py-5">Capacity</th>
+                <th className="px-8 py-5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredClasses.map((cls) => (
-                <tr key={cls.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                        <BookOpen className="w-4 h-4" />
+                <tr key={cls.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-primary/10 text-primary rounded-2xl group-hover:bg-primary group-hover:text-white transition-all">
+                        <BookOpen className="w-5 h-5" />
                       </div>
-                      <span className="font-medium text-gray-900">{cls.className}</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{cls.className}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">{cls.sectionName || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-8 py-5">
+                    <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      {cls.sectionName || 'N/A'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">
                     {campuses.find(c => c.id === cls.campusId)?.campusName || 'Unknown'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{cls.capacity} Students</td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-8 py-5">
+                    <div className="text-sm font-black text-slate-900 dark:text-white">{cls.capacity}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Students</div>
+                  </td>
+                  <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button 
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => handleEdit(cls)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-2.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
                       >
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => handleDelete(cls.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2.5 text-slate-400 hover:text-accent hover:bg-accent/10 rounded-xl transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </button>
+                      </motion.button>
                     </div>
                   </td>
                 </tr>
@@ -158,27 +199,32 @@ export default function ClassManagement() {
       {/* Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-md">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="vibrant-card w-full max-w-lg overflow-hidden border-none shadow-2xl"
             >
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900">
-                  {editingId ? 'Edit Class' : 'Add New Class'}
-                </h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                  <Trash2 className="w-6 h-6" />
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/10 rounded-2xl">
+                    <BookOpen className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
+                    {editingId ? 'Edit Class' : 'Add New Class'}
+                  </h3>
+                </div>
+                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                  <XCircle className="w-8 h-8" />
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Campus</label>
+              <form onSubmit={handleSubmit} className="p-10 space-y-8 bg-white dark:bg-slate-900">
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Campus</label>
                   <select
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="vibrant-input appearance-none"
                     value={formData.campusId}
                     onChange={(e) => setFormData({ ...formData, campusId: e.target.value })}
                   >
@@ -188,41 +234,41 @@ export default function ClassManagement() {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Class Name</label>
                     <input
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="vibrant-input"
                       value={formData.className}
                       onChange={(e) => setFormData({ ...formData, className: e.target.value })}
                       placeholder="e.g. Grade 10"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Section Name</label>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Section Name</label>
                     <input
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="vibrant-input"
                       value={formData.sectionName}
                       onChange={(e) => setFormData({ ...formData, sectionName: e.target.value })}
                       placeholder="e.g. Section A"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Capacity</label>
                     <input
                       type="number"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="vibrant-input"
                       value={formData.capacity}
                       onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Shift</label>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Shift</label>
                     <select
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="vibrant-input appearance-none"
                       value={formData.shift}
                       onChange={(e) => setFormData({ ...formData, shift: e.target.value })}
                     >
@@ -231,20 +277,24 @@ export default function ClassManagement() {
                     </select>
                   </div>
                 </div>
-                <div className="flex gap-3 mt-6">
-                  <button
+                <div className="flex gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    className="vibrant-btn-primary flex-1 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20"
                   >
                     {editingId ? 'Update Class' : 'Save Class'}
-                  </button>
+                  </motion.button>
                 </div>
               </form>
             </motion.div>

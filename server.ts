@@ -29,25 +29,40 @@ const MOCK_USERS = [
 ];
 
 const MOCK_DATA: Record<string, any[]> = {
-  students: [],
+  students: [
+    { id: "s1", campusId: "1", classId: "1", rollNumber: "FIS-001", firstName: "Ahmed", lastName: "Khan", fatherName: "Zubair Khan", dateOfBirth: "2015-05-10", gender: "Male", mobile: "0300-1234567", address: "Karachi", admissionDate: "2023-01-15", status: "Active", outstandingFees: 0 },
+    { id: "s2", campusId: "1", classId: "1", rollNumber: "FIS-002", firstName: "Sara", lastName: "Ahmed", fatherName: "Ahmed Ali", dateOfBirth: "2016-02-20", gender: "Female", mobile: "0300-7654321", address: "Karachi", admissionDate: "2023-01-15", status: "Active", outstandingFees: 0 }
+  ],
   campuses: [
     { id: "1", campusCode: "C001", campusName: "Main Campus", address: "Karachi", phone: "021-1234567", email: "main@faizan.com", isActive: true, createdOn: new Date().toISOString() }
   ],
   classes: [
     { id: "1", campusId: "1", className: "Class 1", sectionName: "A", capacity: 30, shift: "Morning" }
   ],
+  users: [
+    { id: "1", fullName: "Super Admin", username: "admin", email: "admin@faizan.com", role: "Super Admin", isActive: true, createdOn: new Date().toISOString() },
+    { id: "t1", fullName: "Teacher One", username: "teacher1", email: "teacher1@faizan.com", role: "Teacher", campusId: "1", isActive: true, createdOn: new Date().toISOString() },
+    { id: "a1", fullName: "Accountant One", username: "acc1", email: "acc1@faizan.com", role: "Accountant", campusId: "1", isActive: true, createdOn: new Date().toISOString() }
+  ],
   staff: [],
   feevouchers: [],
-  feestructures: [],
+  feestructures: [
+    { id: "fs1", campusId: "1", classId: "1", tuitionFee: 2500, admissionFee: 5000, examFee: 1000, transportFee: 1500, miscFee: 500 }
+  ],
   quickpayconfig: [
-    { id: "1", merchantId: "MOCK_MERCHANT", apiKey: "MOCK_KEY", callbackUrl: "http://localhost:3000/api/quickpay/callback", mode: "Sandbox", isEnabled: true }
+    { id: "1", merchantId: "FIS_MOCK_MERCHANT", apiKey: "FIS_MOCK_SECRET_KEY", callbackUrl: "http://localhost:3000/api/quickpay/callback", mode: "Sandbox", isEnabled: true }
   ],
   examterms: [
     { id: "1", termName: "Monthly Test", campusId: "1", status: "Active" }
   ],
   exams: [],
-  studentResults: [],
-  transactions: []
+  studentresults: [],
+  transactions: [],
+  attendance: [],
+  activitylogs: [],
+  inventory: [],
+  salaryslips: [],
+  notices: []
 };
 
 async function startServer() {

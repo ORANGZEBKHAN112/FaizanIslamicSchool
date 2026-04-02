@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, FileText, Download, CheckCircle, AlertCircle, Filter } from 'lucide-react';
+import { Plus, Search, FileText, Download, CheckCircle, AlertCircle, Filter, XCircle } from 'lucide-react';
 import { FeeVoucher, Student, Campus, Class, FeeStructure } from '../types';
 import { dataService } from '../services/dataService';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
 
 export default function FeeManagement() {
   const [vouchers, setVouchers] = useState<FeeVoucher[]>([]);
@@ -14,6 +15,21 @@ export default function FeeManagement() {
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState<FeeVoucher | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  
+  const [structureForm, setStructureForm] = useState({
+    campusId: '',
+    classId: '',
+    tuitionFee: 0,
+    admissionFee: 0,
+    examFee: 0,
+    transportFee: 0,
+    miscFee: 0
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -42,73 +58,110 @@ export default function FeeManagement() {
     const activeStudents = students.filter(s => s.status === 'Active');
     
     if (activeStudents.length === 0) {
-      alert('No active students found to generate vouchers.');
+      toast.error('No active students found to generate vouchers.');
       return;
     }
 
     if (feeStructures.length === 0) {
-      alert('No fee structures defined. Please set up fee structures first.');
+      toast.error('No fee structures defined. Please set up fee structures first.');
       return;
     }
 
     let count = 0;
-    for (const student of activeStudents) {
-      const structure = feeStructures.find(f => f.campusId === student.campusId && f.classId === student.classId);
-      if (structure) {
-        const totalAmount = structure.tuitionFee + structure.transportFee + structure.miscFee;
-        
-        // Check if voucher already exists
-        const exists = vouchers.find(v => v.studentId === student.id && v.voucherMonth === month && v.voucherYear === year);
-        if (!exists) {
-          await dataService.add('feeVouchers', {
-            studentId: student.id,
-            campusId: student.campusId,
-            voucherMonth: month,
-            voucherYear: year,
-            dueDate,
-            totalAmount,
-            paidAmount: 0,
-            status: 'Unpaid',
-            generatedOn: new Date().toISOString()
-          });
+    try {
+      for (const student of activeStudents) {
+        const structure = feeStructures.find(f => f.campusId === student.campusId && f.classId === student.classId);
+        if (structure) {
+          // Monthly voucher typically includes tuition, transport, and misc
+          const totalAmount = structure.tuitionFee + structure.transportFee + structure.miscFee;
+          
+          // Check if voucher already exists for this month/year
+          const exists = vouchers.find(v => v.studentId === student.id && v.voucherMonth === month && v.voucherYear === year);
+          if (!exists) {
+            await dataService.add('feeVouchers', {
+              studentId: student.id,
+              campusId: student.campusId,
+              voucherMonth: month,
+              voucherYear: year,
+              dueDate,
+              totalAmount,
+              paidAmount: 0,
+              status: 'Unpaid',
+              generatedOn: new Date().toISOString()
+            });
 
-          // Update student outstanding fees
-          const newOutstanding = (student.outstandingFees || 0) + totalAmount;
-          await dataService.update('students', student.id, {
-            outstandingFees: newOutstanding
-          });
+            // Update student outstanding fees
+            const newOutstanding = (student.outstandingFees || 0) + totalAmount;
+            await dataService.update('students', student.id, {
+              outstandingFees: newOutstanding
+            });
 
-          count++;
+            count++;
+          }
         }
       }
+      if (count > 0) {
+        toast.success(`${count} vouchers generated for current month!`);
+      } else {
+        toast.info('Vouchers already exist for all students for this month.');
+      }
+    } catch (error) {
+      console.error('Error generating vouchers:', error);
+      toast.error('Failed to generate vouchers');
     }
-    alert(count > 0 ? `${count} vouchers generated for current month!` : 'Vouchers already exist for all students for this month.');
   };
 
-  const markAsPaid = async (voucher: FeeVoucher) => {
-    if (window.confirm('Mark this voucher as paid?')) {
-      try {
-        // 1. Update Voucher
-        await dataService.update('feeVouchers', voucher.id, {
-          status: 'Paid',
-          paidAmount: voucher.totalAmount
-        });
+  const handlePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVoucher) return;
 
-        // 2. Update Student Outstanding Fees
-        const student = students.find(s => s.id === voucher.studentId);
-        if (student) {
-          const newOutstanding = Math.max(0, (student.outstandingFees || 0) - voucher.totalAmount);
-          await dataService.update('students', student.id, {
-            outstandingFees: newOutstanding
-          });
-        }
-        
-        alert('Voucher marked as paid and student balance updated.');
-      } catch (error) {
-        console.error('Error marking as paid:', error);
-        alert('Failed to update voucher.');
-      }
+    if (paymentAmount <= 0) {
+      toast.error('Please enter a valid payment amount');
+      return;
     }
+
+    try {
+      const newPaidAmount = selectedVoucher.paidAmount + paymentAmount;
+      const isFullyPaid = newPaidAmount >= selectedVoucher.totalAmount;
+      
+      // 1. Update Voucher
+      await dataService.update('feeVouchers', selectedVoucher.id, {
+        status: isFullyPaid ? 'Paid' : 'Unpaid',
+        paidAmount: newPaidAmount
+      });
+
+      // 2. Update Student Outstanding Fees
+      const student = students.find(s => s.id === selectedVoucher.studentId);
+      if (student) {
+        const newOutstanding = Math.max(0, (student.outstandingFees || 0) - paymentAmount);
+        await dataService.update('students', student.id, {
+          outstandingFees: newOutstanding
+        });
+      }
+
+      // 3. Add Transaction Log
+      await dataService.add('transactions', {
+        studentId: selectedVoucher.studentId,
+        voucherId: selectedVoucher.id,
+        amount: paymentAmount,
+        status: 'Success',
+        transactionDate: new Date().toISOString()
+      });
+      
+      setIsPaymentModalOpen(false);
+      setSelectedVoucher(null);
+      setPaymentAmount(0);
+      toast.success('Payment recorded successfully.');
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      toast.error('Failed to record payment.');
+    }
+  };
+
+  const openPaymentModal = (voucher: FeeVoucher) => {
+    setSelectedVoucher(voucher);
+    setPaymentAmount(voucher.totalAmount - voucher.paidAmount);
+    setIsPaymentModalOpen(true);
   };
 
   const downloadPDF = (voucher: FeeVoucher) => {
@@ -120,7 +173,7 @@ export default function FeeManagement() {
     
     // Header
     doc.setFontSize(20);
-    doc.setTextColor(59, 130, 246);
+    doc.setTextColor(0, 169, 157);
     doc.text(campus?.campusName || 'Faizan Islamic School', 105, 20, { align: 'center' });
     doc.setFontSize(12);
     doc.setTextColor(100);
@@ -150,12 +203,12 @@ export default function FeeManagement() {
       ['Total Amount', `Rs. ${voucher.totalAmount}`]
     ];
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 85,
       head: [['Description', 'Amount']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
+      headStyles: { fillColor: [0, 169, 157] },
       styles: { fontSize: 10 }
     });
 
@@ -169,7 +222,7 @@ export default function FeeManagement() {
 
   const downloadAllVouchers = () => {
     if (filteredVouchers.length === 0) {
-      alert('No vouchers to download.');
+      toast.error('No vouchers to download.');
       return;
     }
     
@@ -206,7 +259,7 @@ export default function FeeManagement() {
         ['Total Amount', `Rs. ${voucher.totalAmount}`]
       ];
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         startY: currentY + 35,
         head: [['Description', 'Amount']],
         body: tableData,
@@ -227,91 +280,206 @@ export default function FeeManagement() {
     return matchesSearch && matchesCampus && matchesStatus;
   });
 
-  const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
-  const [structureForm, setStructureForm] = useState({
-    campusId: '',
-    classId: '',
-    tuitionFee: 0,
-    transportFee: 0,
-    miscFee: 0
-  });
-
   const handleAddStructure = async (e: React.FormEvent) => {
     e.preventDefault();
-    await dataService.add('feeStructures', structureForm);
-    setIsStructureModalOpen(false);
-    setStructureForm({ campusId: '', classId: '', tuitionFee: 0, transportFee: 0, miscFee: 0 });
+    
+    // Validation
+    if (!structureForm.campusId) {
+      toast.error('Please select a campus');
+      return;
+    }
+    if (!structureForm.classId) {
+      toast.error('Please select a class');
+      return;
+    }
+
+    try {
+      await dataService.add('feeStructures', structureForm);
+      toast.success('Fee structure saved successfully');
+      setIsStructureModalOpen(false);
+      setStructureForm({ campusId: '', classId: '', tuitionFee: 0, admissionFee: 0, examFee: 0, transportFee: 0, miscFee: 0 });
+    } catch (error) {
+      console.error('Error saving fee structure:', error);
+      toast.error('Failed to save fee structure');
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-gray-900">Fee Management</h2>
-        <div className="flex gap-2">
-          <button
+    <div className="space-y-8 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div>
+          <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Fee Management</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Manage fee structures, generate vouchers, and track collections.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setIsStructureModalOpen(true)}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            className="vibrant-glass text-slate-700 dark:text-slate-300 px-6 py-3 rounded-2xl border border-white dark:border-slate-800 flex items-center gap-2 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm text-[10px] font-black uppercase tracking-widest"
           >
-            <AlertCircle className="w-5 h-5" />
-            Fee Structures
-          </button>
-          <button
+            <AlertCircle className="w-4 h-4" />
+            Structures
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={downloadAllVouchers}
-            className="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 flex items-center gap-2"
+            className="vibrant-glass text-primary px-6 py-3 rounded-2xl border border-white dark:border-slate-800 flex items-center gap-2 hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm text-[10px] font-black uppercase tracking-widest"
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-4 h-4" />
             Bulk Download
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.98 }}
             onClick={generateVouchers}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+            className="vibrant-btn-primary px-6 py-3 rounded-2xl flex items-center gap-2 shadow-xl shadow-primary/20 text-[10px] font-black uppercase tracking-widest"
           >
-            <Plus className="w-5 h-5" />
-            Generate Monthly Vouchers
-          </button>
+            <Plus className="w-4 h-4" />
+            Generate Vouchers
+          </motion.button>
         </div>
       </div>
 
       <AnimatePresence>
         {isStructureModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900">Manage Fee Structures</h3>
-                <button onClick={() => setIsStructureModalOpen(false)} className="text-gray-400 hover:text-gray-600">×</button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-md">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="vibrant-card w-full max-w-lg overflow-hidden border-none shadow-2xl">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/10 rounded-2xl">
+                    <AlertCircle className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Fee Structures</h3>
+                </div>
+                <button onClick={() => setIsStructureModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                  <XCircle className="w-8 h-8" />
+                </button>
               </div>
-              <form onSubmit={handleAddStructure} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
-                    <select required className="w-full px-4 py-2 border border-gray-300 rounded-lg" value={structureForm.campusId} onChange={(e) => setStructureForm({ ...structureForm, campusId: e.target.value })}>
+              <form onSubmit={handleAddStructure} className="p-10 space-y-8 bg-white dark:bg-slate-900">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Campus</label>
+                    <select required className="vibrant-input appearance-none" value={structureForm.campusId} onChange={(e) => setStructureForm({ ...structureForm, campusId: e.target.value })}>
                       <option value="">Select Campus</option>
                       {campuses.map(c => <option key={c.id} value={c.id}>{c.campusName}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                    <select required className="w-full px-4 py-2 border border-gray-300 rounded-lg" value={structureForm.classId} onChange={(e) => setStructureForm({ ...structureForm, classId: e.target.value })}>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Class</label>
+                    <select required className="vibrant-input appearance-none" value={structureForm.classId} onChange={(e) => setStructureForm({ ...structureForm, classId: e.target.value })}>
                       <option value="">Select Class</option>
                       {classes.map(c => <option key={c.id} value={c.id}>{c.className}</option>)}
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tuition Fee</label>
-                  <input type="number" required className="w-full px-4 py-2 border border-gray-300 rounded-lg" value={structureForm.tuitionFee} onChange={(e) => setStructureForm({ ...structureForm, tuitionFee: Number(e.target.value) })} />
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tuition Fee</label>
+                    <input type="number" required className="vibrant-input font-black text-primary" value={structureForm.tuitionFee} onChange={(e) => setStructureForm({ ...structureForm, tuitionFee: Number(e.target.value) })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Admission Fee</label>
+                    <input type="number" required className="vibrant-input font-black text-primary" value={structureForm.admissionFee} onChange={(e) => setStructureForm({ ...structureForm, admissionFee: Number(e.target.value) })} />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Transport Fee</label>
-                  <input type="number" required className="w-full px-4 py-2 border border-gray-300 rounded-lg" value={structureForm.transportFee} onChange={(e) => setStructureForm({ ...structureForm, transportFee: Number(e.target.value) })} />
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Exam Fee</label>
+                    <input type="number" required className="vibrant-input font-black text-primary" value={structureForm.examFee} onChange={(e) => setStructureForm({ ...structureForm, examFee: Number(e.target.value) })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Transport Fee</label>
+                    <input type="number" required className="vibrant-input font-black text-primary" value={structureForm.transportFee} onChange={(e) => setStructureForm({ ...structureForm, transportFee: Number(e.target.value) })} />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Misc Fee</label>
-                  <input type="number" required className="w-full px-4 py-2 border border-gray-300 rounded-lg" value={structureForm.miscFee} onChange={(e) => setStructureForm({ ...structureForm, miscFee: Number(e.target.value) })} />
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Misc Fee</label>
+                  <input type="number" required className="vibrant-input font-black text-primary" value={structureForm.miscFee} onChange={(e) => setStructureForm({ ...structureForm, miscFee: Number(e.target.value) })} />
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setIsStructureModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                  <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save Structure</button>
+                <div className="flex gap-4 pt-10 border-t border-slate-100 dark:border-slate-800">
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="button" 
+                    onClick={() => setIsStructureModalOpen(false)} 
+                    className="flex-1 px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit" 
+                    className="vibrant-btn-primary flex-1 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20"
+                  >
+                    Save Structure
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {isPaymentModalOpen && selectedVoucher && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-md">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="vibrant-card w-full max-w-md overflow-hidden border-none shadow-2xl">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-success/5">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-success/10 rounded-2xl">
+                    <CheckCircle className="w-6 h-6 text-success" />
+                  </div>
+                  <h3 className="text-2xl font-black text-success tracking-tight uppercase">Record Payment</h3>
+                </div>
+                <button onClick={() => setIsPaymentModalOpen(false)} className="text-success/40 hover:text-success transition-colors">
+                  <XCircle className="w-8 h-8" />
+                </button>
+              </div>
+              <form onSubmit={handlePayment} className="p-10 space-y-8 bg-white dark:bg-slate-900">
+                <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700 space-y-4">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                    <span className="text-slate-400">Total Amount</span>
+                    <span className="text-slate-900 dark:text-white">Rs. {selectedVoucher.totalAmount}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                    <span className="text-slate-400">Already Paid</span>
+                    <span className="text-success">Rs. {selectedVoucher.paidAmount}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-black border-t border-slate-100 dark:border-slate-700 pt-4">
+                    <span className="text-slate-400 uppercase tracking-widest text-[10px]">Remaining</span>
+                    <span className="text-primary text-lg">Rs. {selectedVoucher.totalAmount - selectedVoucher.paidAmount}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payment Amount</label>
+                  <input 
+                    type="number" 
+                    required 
+                    max={selectedVoucher.totalAmount - selectedVoucher.paidAmount}
+                    className="vibrant-input font-black text-primary text-xl" 
+                    value={paymentAmount} 
+                    onChange={(e) => setPaymentAmount(Number(e.target.value))} 
+                  />
+                </div>
+                <div className="flex gap-4 pt-6">
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="button" 
+                    onClick={() => setIsPaymentModalOpen(false)} 
+                    className="flex-1 px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-slate-700"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit" 
+                    className="vibrant-btn-primary bg-success hover:bg-success/90 flex-1 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-success/20"
+                  >
+                    Confirm Payment
+                  </motion.button>
                 </div>
               </form>
             </motion.div>
@@ -319,20 +487,20 @@ export default function FeeManagement() {
         )}
       </AnimatePresence>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <div className="vibrant-card overflow-hidden">
+        <div className="p-8 border-b border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
             <input
               type="text"
               placeholder="Search by student..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="vibrant-input pl-12"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className="vibrant-input appearance-none"
             value={selectedCampus}
             onChange={(e) => setSelectedCampus(e.target.value)}
           >
@@ -342,7 +510,7 @@ export default function FeeManagement() {
             ))}
           </select>
           <select
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className="vibrant-input appearance-none"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
@@ -355,56 +523,60 @@ export default function FeeManagement() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
-                <th className="px-6 py-4 font-semibold">Voucher ID</th>
-                <th className="px-6 py-4 font-semibold">Student</th>
-                <th className="px-6 py-4 font-semibold">Month/Year</th>
-                <th className="px-6 py-4 font-semibold">Amount</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
+              <tr className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                <th className="px-8 py-5">Voucher ID</th>
+                <th className="px-8 py-5">Student</th>
+                <th className="px-8 py-5">Month/Year</th>
+                <th className="px-8 py-5">Amount</th>
+                <th className="px-8 py-5">Status</th>
+                <th className="px-8 py-5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredVouchers.map((voucher) => {
                 const student = students.find(s => s.id === voucher.studentId);
                 return (
-                  <tr key={voucher.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-gray-500">{voucher.id.substring(0, 8)}</td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{student?.firstName} {student?.lastName}</div>
-                      <div className="text-xs text-gray-500">{student?.rollNumber}</div>
+                  <tr key={voucher.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                    <td className="px-8 py-5 font-mono text-[10px] font-black text-slate-400">{voucher.id.substring(0, 8)}</td>
+                    <td className="px-8 py-5">
+                      <div className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{student?.firstName} {student?.lastName}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{student?.rollNumber}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{voucher.voucherMonth}/{voucher.voucherYear}</td>
-                    <td className="px-6 py-4 font-bold text-gray-900">${voucher.totalAmount}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-8 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">{voucher.voucherMonth}/{voucher.voucherYear}</td>
+                    <td className="px-8 py-5 font-black text-slate-900 dark:text-white">Rs. {voucher.totalAmount}</td>
+                    <td className="px-8 py-5">
                       {voucher.status === 'Paid' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-success/10 text-success">
                           <CheckCircle className="w-3 h-3" /> Paid
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-accent/10 text-accent">
                           <AlertCircle className="w-3 h-3" /> Unpaid
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-8 py-5 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {voucher.status === 'Unpaid' && (
-                          <button 
-                            onClick={() => markAsPaid(voucher)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Mark as Paid"
+                        {voucher.status !== 'Paid' && (
+                          <motion.button 
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => openPaymentModal(voucher)}
+                            className="p-2.5 text-success hover:bg-success/10 rounded-xl transition-all"
+                            title="Record Payment"
                           >
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
+                            <CheckCircle className="w-5 h-5" />
+                          </motion.button>
                         )}
-                        <button 
+                        <motion.button 
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
                           onClick={() => downloadPDF(voucher)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2.5 text-primary hover:bg-primary/10 rounded-xl transition-all"
                           title="Download PDF"
                         >
-                          <Download className="w-4 h-4" />
-                        </button>
+                          <Download className="w-5 h-5" />
+                        </motion.button>
                       </div>
                     </td>
                   </tr>

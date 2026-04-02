@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { Toaster } from 'sonner';
 import { User } from './types';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -7,7 +8,11 @@ import CampusManagement from './pages/CampusManagement';
 import ClassManagement from './pages/ClassManagement';
 import StudentManagement from './pages/StudentManagement';
 import FeeManagement from './pages/FeeManagement';
-import ExamManagement from './pages/ExamManagement';
+import Attendance from './pages/Attendance';
+import Exams from './pages/Exams';
+import ActivityLogs from './pages/ActivityLogs';
+import Inventory from './pages/Inventory';
+import StaffPayroll from './pages/StaffPayroll';
 import StaffManagement from './pages/StaffManagement';
 import QuickPaySetup from './pages/QuickPaySetup';
 import StudentPortal from './pages/StudentPortal';
@@ -34,7 +39,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-950">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -42,6 +47,7 @@ export default function App() {
 
   return (
     <Router>
+      <Toaster position="top-right" richColors closeButton />
       <Routes>
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
         
@@ -49,15 +55,19 @@ export default function App() {
           <Route index element={<Dashboard user={user} />} />
           
           {/* Admin Routes */}
-          {(user?.role === 'Super Admin' || user?.role === 'Campus Admin') && (
+          {(user?.role === 'Super Admin' || user?.role === 'Admin') && (
             <>
               <Route path="campuses" element={<CampusManagement />} />
               <Route path="classes" element={<ClassManagement />} />
               <Route path="students" element={<StudentManagement />} />
+              <Route path="attendance" element={<Attendance user={user} />} />
               <Route path="fees" element={<FeeManagement />} />
-              <Route path="exams" element={<ExamManagement />} />
+              <Route path="exams" element={<Exams user={user} />} />
               <Route path="staff" element={<StaffManagement />} />
               <Route path="quickpay" element={<QuickPaySetup />} />
+              <Route path="activity-logs" element={<ActivityLogs />} />
+              <Route path="inventory" element={<Inventory />} />
+              <Route path="payroll" element={<StaffPayroll />} />
             </>
           )}
 

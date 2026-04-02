@@ -176,3 +176,58 @@ export interface AuthResponse {
   token: string;
   user: User;
 }
+
+export interface Attendance {
+  id: string;
+  studentId: string;
+  classId: string;
+  campusId: string;
+  date: string;
+  status: 'Present' | 'Absent' | 'Late' | 'Leave';
+  remarks?: string;
+  markedBy: string; // Staff ID
+}
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  details: string;
+  timestamp: string;
+  ipAddress?: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  itemName: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  minThreshold: number;
+  lastUpdated: string;
+}
+
+export interface SalarySlip {
+  id: string;
+  staffId: string;
+  month: number;
+  year: number;
+  basicSalary: number;
+  allowances: number;
+  deductions: number;
+  netSalary: number;
+  status: 'Paid' | 'Pending';
+  paymentDate?: string;
+}
+
+export interface Notice {
+  id: string;
+  campusId: string; // 'all' for all campuses
+  title: string;
+  content: string;
+  date: string;
+  priority: 'Low' | 'Medium' | 'High';
+  targetRoles: UserRole[];
+  isActive: boolean;
+}
