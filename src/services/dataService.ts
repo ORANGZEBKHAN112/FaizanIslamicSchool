@@ -63,6 +63,21 @@ export const dataService = {
     }
   },
 
+  async upload(collectionName: string, formData: FormData) {
+    try {
+      const endpoint = getEndpoint(collectionName);
+      const response = await axios.post(endpoint, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Error uploading to ${collectionName}:`, error);
+      throw error;
+    }
+  },
+
   // Mocking subscribe for now since we don't have real-time backend yet
   subscribe(collectionName: string, callback: (data: any[]) => void, filters?: any) {
     const fetchData = async () => {

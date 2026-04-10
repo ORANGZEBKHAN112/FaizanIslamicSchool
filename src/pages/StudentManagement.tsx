@@ -21,19 +21,34 @@ export default function StudentManagement() {
   const [formData, setFormData] = useState({
     campusId: '',
     classId: '',
+    serialNo: '',
     rollNumber: '',
     firstName: '',
     lastName: '',
     fatherName: '',
     dateOfBirth: '',
     gender: 'Male',
-    mobile: '',
+    contactNumber: '',
+    cnicBForm: '',
     address: '',
     admissionDate: new Date().toISOString().split('T')[0],
+    registrationDate: new Date().toISOString().split('T')[0],
+    studentCode: '',
+    campusName: '',
+    country: 'Pakistan',
+    province: 'Punjab',
+    city: 'Multan',
+    tehsil: '',
+    className: '',
+    sectionName: '',
+    session: '2022',
     status: 'Active' as const,
-    outstandingFees: 0
+    outstandingFees: 0,
+    campusType: 'Physical Campus'
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsubStudents = dataService.subscribe('students', setStudents);
@@ -57,7 +72,7 @@ export default function StudentManagement() {
       s.fatherName,
       classes.find(c => c.id === s.classId)?.className || 'N/A',
       campuses.find(c => c.id === s.campusId)?.campusName || 'N/A',
-      s.mobile,
+      s.contactNumber,
       s.status,
       s.outstandingFees
     ]);
@@ -94,8 +109,8 @@ export default function StudentManagement() {
       toast.error('Father\'s name is required');
       return;
     }
-    if (!formData.mobile.trim()) {
-      toast.error('Mobile number is required');
+    if (!formData.contactNumber.trim()) {
+      toast.error('Contact number is required');
       return;
     }
 
@@ -134,9 +149,11 @@ export default function StudentManagement() {
       setIsModalOpen(false);
       setEditingId(null);
       setFormData({
-        campusId: '', classId: '', rollNumber: '', firstName: '', lastName: '',
-        fatherName: '', dateOfBirth: '', gender: 'Male', mobile: '',
-        address: '', admissionDate: new Date().toISOString().split('T')[0], status: 'Active', outstandingFees: 0
+        campusId: '', classId: '', serialNo: '', rollNumber: '', firstName: '', lastName: '',
+        fatherName: '', dateOfBirth: '', gender: 'Male', contactNumber: '', cnicBForm: '',
+        address: '', admissionDate: new Date().toISOString().split('T')[0], registrationDate: new Date().toISOString().split('T')[0],
+        studentCode: '', campusName: '', country: 'Pakistan', province: 'Punjab', city: 'Multan',
+        tehsil: '', className: '', sectionName: '', session: '2022', status: 'Active', outstandingFees: 0, campusType: 'Physical Campus'
       });
     } catch (error) {
       console.error('Error saving student:', error);
@@ -149,29 +166,67 @@ export default function StudentManagement() {
     setFormData({
       campusId: student.campusId,
       classId: student.classId,
+      serialNo: student.serialNo || '',
       rollNumber: student.rollNumber,
       firstName: student.firstName,
       lastName: student.lastName || '',
       fatherName: student.fatherName || '',
       dateOfBirth: student.dateOfBirth || '',
       gender: student.gender || 'Male',
-      mobile: student.mobile || '',
+      contactNumber: student.contactNumber || '',
+      cnicBForm: student.cnicBForm || '',
       address: student.address || '',
       admissionDate: student.admissionDate || '',
+      registrationDate: student.registrationDate || '',
+      studentCode: student.studentCode || '',
+      campusName: student.campusName || '',
+      country: student.country || 'Pakistan',
+      province: student.province || 'Punjab',
+      city: student.city || 'Multan',
+      tehsil: student.tehsil || '',
+      className: student.className || '',
+      sectionName: student.sectionName || '',
+      session: student.session || '2022',
       status: student.status,
-      outstandingFees: student.outstandingFees || 0
+      outstandingFees: student.outstandingFees || 0,
+      campusType: student.campusType || 'Physical Campus'
     });
     setIsModalOpen(true);
   };
 
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setIsImporting(true);
+    const toastId = toast.loading('Importing students from Excel...');
+
+    try {
+      const response = await dataService.upload('import-students', formData);
+      toast.success(response.message, { id: toastId, duration: 5000 });
+      // Refresh students list
+      const unsub = dataService.subscribe('students', setStudents);
+      unsub();
+    } catch (error: any) {
+      console.error('Import failed:', error);
+      toast.error(error.response?.data?.message || 'Failed to import students', { id: toastId });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
+    if (window.confirm('Are you sure you want to delete this student record?')) {
       try {
         await dataService.delete('students', id);
-        toast.success('Student deleted successfully');
+        toast.success('Student record deleted successfully');
       } catch (error) {
         console.error('Error deleting student:', error);
-        toast.error('Failed to delete student');
+        toast.error('Failed to delete student record');
       }
     }
   };
@@ -191,6 +246,23 @@ export default function StudentManagement() {
           <p className="text-slate-500 dark:text-slate-400 font-medium">Manage student records, profiles, and fee history.</p>
         </div>
         <div className="flex items-center gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            disabled={isImporting}
+            onClick={() => fileInputRef.current?.click()}
+            className="vibrant-glass text-primary px-6 py-3 rounded-2xl border border-primary/20 flex items-center gap-2 hover:bg-primary/5 transition-all shadow-sm text-[10px] font-black uppercase tracking-widest disabled:opacity-50"
+          >
+            <Share2 className="w-4 h-4" />
+            {isImporting ? 'Importing...' : 'Import Students'}
+          </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -378,44 +450,64 @@ export default function StudentManagement() {
 
               <div className="p-10 overflow-y-auto flex-1 bg-white dark:bg-slate-900">
                 {activeTab === 'profile' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="space-y-6">
                       <div className="group">
                         <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Father's Name</p>
-                        <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
-                          <p className="font-bold text-slate-900 dark:text-white text-lg">{selectedStudent.fatherName}</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white">{selectedStudent.fatherName}</p>
+                        </div>
+                      </div>
+                      <div className="group">
+                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">CNIC / B-Form</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white">{selectedStudent.cnicBForm}</p>
                         </div>
                       </div>
                       <div className="group">
                         <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Date of Birth</p>
-                        <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
-                          <p className="font-bold text-slate-900 dark:text-white text-lg">{selectedStudent.dateOfBirth}</p>
-                        </div>
-                      </div>
-                      <div className="group">
-                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Gender</p>
-                        <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
-                          <p className="font-bold text-slate-900 dark:text-white text-lg">{selectedStudent.gender}</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white">{selectedStudent.dateOfBirth}</p>
                         </div>
                       </div>
                     </div>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <div className="group">
-                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Mobile</p>
-                        <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
-                          <p className="font-bold text-slate-900 dark:text-white text-lg">{selectedStudent.mobile}</p>
+                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Contact Number</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white">{selectedStudent.contactNumber}</p>
                         </div>
                       </div>
                       <div className="group">
                         <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Admission Date</p>
-                        <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
-                          <p className="font-bold text-slate-900 dark:text-white text-lg">{selectedStudent.admissionDate}</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white">{selectedStudent.admissionDate}</p>
+                        </div>
+                      </div>
+                      <div className="group">
+                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Registration Date</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white">{selectedStudent.registrationDate}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      <div className="group">
+                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Location</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white text-xs">{selectedStudent.tehsil}, {selectedStudent.city}, {selectedStudent.province}</p>
                         </div>
                       </div>
                       <div className="group">
                         <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Address</p>
-                        <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
-                          <p className="font-bold text-slate-900 dark:text-white text-lg leading-relaxed">{selectedStudent.address}</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white text-xs leading-relaxed">{selectedStudent.address}</p>
+                        </div>
+                      </div>
+                      <div className="group">
+                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2 ml-1">Campus Info</p>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                          <p className="font-bold text-slate-900 dark:text-white text-xs">{selectedStudent.campusName} ({selectedStudent.campusType})</p>
                         </div>
                       </div>
                     </div>
@@ -530,8 +622,16 @@ export default function StudentManagement() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Roll Number (Optional)</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Roll Number</label>
                     <input className="vibrant-input" value={formData.rollNumber} onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })} placeholder="Auto-generated if empty" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Student Code</label>
+                    <input className="vibrant-input" value={formData.studentCode} onChange={(e) => setFormData({ ...formData, studentCode: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Serial Number</label>
+                    <input className="vibrant-input" value={formData.serialNo} onChange={(e) => setFormData({ ...formData, serialNo: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">First Name</label>
@@ -546,6 +646,10 @@ export default function StudentManagement() {
                     <input className="vibrant-input" value={formData.fatherName} onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })} />
                   </div>
                   <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CNIC / B-Form</label>
+                    <input className="vibrant-input" value={formData.cnicBForm} onChange={(e) => setFormData({ ...formData, cnicBForm: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Date of Birth</label>
                     <input type="date" className="vibrant-input" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} />
                   </div>
@@ -558,8 +662,24 @@ export default function StudentManagement() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile</label>
-                    <input className="vibrant-input" value={formData.mobile} onChange={(e) => setFormData({ ...formData, mobile: e.target.value })} />
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Number</label>
+                    <input className="vibrant-input" value={formData.contactNumber} onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Admission Date</label>
+                    <input type="date" className="vibrant-input" value={formData.admissionDate} onChange={(e) => setFormData({ ...formData, admissionDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registration Date</label>
+                    <input type="date" className="vibrant-input" value={formData.registrationDate} onChange={(e) => setFormData({ ...formData, registrationDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Session</label>
+                    <input className="vibrant-input" value={formData.session} onChange={(e) => setFormData({ ...formData, session: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Campus Type</label>
+                    <input className="vibrant-input" value={formData.campusType} onChange={(e) => setFormData({ ...formData, campusType: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
@@ -572,6 +692,24 @@ export default function StudentManagement() {
                   <div className="space-y-2">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Outstanding Fees (Rs.)</label>
                     <input type="number" className="vibrant-input font-black text-primary" value={formData.outstandingFees} onChange={(e) => setFormData({ ...formData, outstandingFees: Number(e.target.value) })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Country</label>
+                    <input className="vibrant-input" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Province</label>
+                    <input className="vibrant-input" value={formData.province} onChange={(e) => setFormData({ ...formData, province: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">City</label>
+                    <input className="vibrant-input" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tehsil / Area</label>
+                    <input className="vibrant-input" value={formData.tehsil} onChange={(e) => setFormData({ ...formData, tehsil: e.target.value })} />
                   </div>
                 </div>
                 <div className="space-y-2">

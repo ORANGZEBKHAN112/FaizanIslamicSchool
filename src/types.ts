@@ -36,18 +36,31 @@ export interface Student {
   id: string;
   campusId: string;
   classId: string;
+  serialNo?: string;
+  dateOfBirth?: string;
+  admissionDate?: string;
+  registrationDate?: string;
+  gender?: string;
+  studentCode?: string;
   rollNumber: string;
+  contactNumber?: string;
+  cnicBForm?: string;
+  address?: string;
+  campusName?: string;
+  country?: string;
+  province?: string;
+  city?: string;
+  tehsil?: string;
   firstName: string;
   lastName?: string;
   fatherName?: string;
-  dateOfBirth?: string;
-  gender?: string;
-  mobile?: string;
-  address?: string;
-  admissionDate?: string;
-  profileImage?: string;
+  className?: string;
+  sectionName?: string;
+  session?: string;
   status: 'Active' | 'Left' | 'Graduated';
   outstandingFees: number;
+  campusType?: string;
+  profileImage?: string;
 }
 
 export interface Staff {
