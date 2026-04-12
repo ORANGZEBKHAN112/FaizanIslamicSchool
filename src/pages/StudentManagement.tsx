@@ -206,7 +206,18 @@ export default function StudentManagement() {
 
     try {
       const response = await dataService.upload('import-students', formData);
-      toast.success(response.message, { id: toastId, duration: 5000 });
+      const { imported, totalRows, failed, errorDetails } = response;
+      
+      if (failed > 0) {
+        toast.error(`Import finished with errors: ${imported}/${totalRows} imported. ${failed} failed.`, { 
+          id: toastId, 
+          duration: 10000,
+          description: errorDetails?.length > 0 ? `Errors: ${errorDetails.slice(0, 3).join(', ')}...` : undefined
+        });
+      } else {
+        toast.success(`Successfully imported ${imported}/${totalRows} students!`, { id: toastId, duration: 5000 });
+      }
+      
       // Refresh students list
       const unsub = dataService.subscribe('students', setStudents);
       unsub();

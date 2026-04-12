@@ -66,17 +66,11 @@ export default function Layout({ user }: LayoutProps) {
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['Super Admin', 'Admin', 'Teacher', 'Accountant', 'Student'] },
     { name: 'Campuses', path: '/campuses', icon: School, roles: ['Super Admin'] },
+    { name: 'Fee Settings', path: '/fee-settings', icon: Banknote, roles: ['Super Admin'] },
     { name: 'Classes', path: '/classes', icon: BookOpen, roles: ['Super Admin', 'Admin'] },
     { name: 'Students', path: '/students', icon: Users, roles: ['Super Admin', 'Admin', 'Teacher'] },
-    { name: 'Attendance', path: '/attendance', icon: Calendar, roles: ['Super Admin', 'Admin', 'Teacher'] },
-    { name: 'Staff', path: '/staff', icon: ShieldCheck, roles: ['Super Admin', 'Admin'] },
     { name: 'Fees', path: '/fees', icon: CreditCard, roles: ['Super Admin', 'Admin', 'Accountant'] },
     { name: 'QuickPay Setup', path: '/quickpay', icon: Settings, roles: ['Super Admin', 'Admin'] },
-    { name: 'Exams', path: '/exams', icon: FileText, roles: ['Super Admin', 'Admin', 'Teacher'] },
-    { name: 'Inventory', path: '/inventory', icon: Package, roles: ['Super Admin', 'Admin'] },
-    { name: 'Payroll', path: '/payroll', icon: Banknote, roles: ['Super Admin', 'Admin'] },
-    { name: 'Activity Logs', path: '/activity-logs', icon: HistoryIcon, roles: ['Super Admin', 'Admin'] },
-    { name: 'My Portal', path: '/portal', icon: UserIcon, roles: ['Student'] },
   ].filter(item => item.roles.includes(user.role));
 
   return (

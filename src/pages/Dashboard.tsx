@@ -23,7 +23,7 @@ import {
   Line,
   Cell
 } from 'recharts';
-import { User, Campus, Student, FeeVoucher, Staff, Transaction, Attendance } from '../types';
+import { User, Campus, Student, Fee, Transaction } from '../types';
 import { dataService } from '../services/dataService';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -40,7 +40,6 @@ export default function Dashboard({ user }: DashboardProps) {
     students: 0,
     pendingFees: 0,
     defaulters: 0,
-    staff: 0,
     onlineCollections: 0
   });
 
@@ -61,10 +60,6 @@ export default function Dashboard({ user }: DashboardProps) {
         setStats(prev => ({ ...prev, students: data.length }));
       });
 
-      const unsubStaff = dataService.subscribe('staff', (data: Staff[]) => {
-        setStats(prev => ({ ...prev, staff: data.length }));
-      });
-
       const unsubTransactions = dataService.subscribe('transactions', (data: Transaction[]) => {
         const online = data.filter(t => t.status === 'Success').reduce((acc, t) => acc + t.amount, 0);
         setStats(prev => ({ ...prev, onlineCollections: online }));
@@ -81,16 +76,16 @@ export default function Dashboard({ user }: DashboardProps) {
         setRecentActivity(activities);
       });
 
-      const unsubVouchers = dataService.subscribe('feevouchers', (data: FeeVoucher[]) => {
+      const unsubVouchers = dataService.subscribe('fees', (data: Fee[]) => {
         const pending = data.filter(v => v.status === 'Unpaid').length;
-        const totalPendingAmount = data.filter(v => v.status === 'Unpaid').reduce((acc, curr) => acc + curr.totalAmount, 0);
+        const totalPendingAmount = data.filter(v => v.status === 'Unpaid').reduce((acc, curr) => acc + curr.amount, 0);
         setStats(prev => ({ ...prev, pendingFees: totalPendingAmount, defaulters: pending }));
         
         const monthlyData = data.reduce((acc: any, curr) => {
-          const month = curr.voucherMonth;
+          const month = curr.month;
           if (!acc[month]) acc[month] = { month: `Month ${month}`, collected: 0, pending: 0 };
-          if (curr.status === 'Paid') acc[month].collected += curr.paidAmount;
-          else acc[month].pending += curr.totalAmount;
+          if (curr.status === 'Paid') acc[month].collected += curr.amount;
+          else acc[month].pending += curr.amount;
           return acc;
         }, {});
         setFeeData(Object.values(monthlyData));
@@ -100,7 +95,6 @@ export default function Dashboard({ user }: DashboardProps) {
       return () => {
         unsubCampuses();
         unsubStudents();
-        unsubStaff();
         unsubTransactions();
         unsubVouchers();
       };
@@ -114,7 +108,6 @@ export default function Dashboard({ user }: DashboardProps) {
     { title: 'Total Students', value: stats.students, icon: Users, color: 'bg-success', path: '/students' },
     { title: 'Pending Fees', value: `Rs. ${stats.pendingFees.toLocaleString()}`, icon: CreditCard, color: 'bg-accent', path: '/fees' },
     { title: 'Fee Defaulters', value: stats.defaulters, icon: AlertCircle, color: 'bg-danger', path: '/fees' },
-    { title: 'Total Staff', value: stats.staff, icon: Users, color: 'bg-secondary', path: '/staff' },
     { title: 'Online Payments', value: `Rs. ${stats.onlineCollections.toLocaleString()}`, icon: TrendingUp, color: 'bg-teal-500', path: '/quickpay' },
   ];
 
@@ -297,12 +290,6 @@ export default function Dashboard({ user }: DashboardProps) {
               </div>
             )}
           </div>
-          <button 
-            onClick={() => navigate('/activity-logs')}
-            className="w-full mt-10 py-4 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/5 hover:bg-primary hover:text-white rounded-2xl transition-all duration-300"
-          >
-            View Full Logs
-          </button>
         </div>
       </div>
       

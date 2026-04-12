@@ -7,8 +7,9 @@ GO
 -- 1. Campuses Table
 CREATE TABLE Campuses (
     id NVARCHAR(50) PRIMARY KEY,
-    campusCode NVARCHAR(50) NOT NULL,
-    campusName NVARCHAR(255) NOT NULL,
+    campus_name NVARCHAR(255) NOT NULL,
+    city NVARCHAR(100),
+    region NVARCHAR(100),
     address NVARCHAR(MAX),
     phone NVARCHAR(50),
     email NVARCHAR(255),
@@ -19,46 +20,36 @@ CREATE TABLE Campuses (
 -- 2. Classes Table
 CREATE TABLE Classes (
     id NVARCHAR(50) PRIMARY KEY,
-    campusId NVARCHAR(50) NOT NULL,
-    className NVARCHAR(255) NOT NULL,
-    sectionName NVARCHAR(50),
+    campus_id NVARCHAR(50) NOT NULL,
+    class_name NVARCHAR(255) NOT NULL,
+    section_name NVARCHAR(50),
     capacity INT,
     shift NVARCHAR(50),
-    CONSTRAINT FK_Classes_Campuses FOREIGN KEY (campusId) REFERENCES Campuses(id)
+    CONSTRAINT FK_Classes_Campuses FOREIGN KEY (campus_id) REFERENCES Campuses(id)
 );
 
 -- 3. Students Table
 CREATE TABLE Students (
     id NVARCHAR(50) PRIMARY KEY,
-    campusId NVARCHAR(50) NOT NULL,
-    classId NVARCHAR(50) NOT NULL,
-    serialNo NVARCHAR(50),
-    dateOfBirth DATE,
-    admissionDate DATE,
-    registrationDate DATE,
+    campus_id NVARCHAR(50) NOT NULL,
+    class_id NVARCHAR(50) NOT NULL,
+    admission_no NVARCHAR(50) NOT NULL,
+    registration_no NVARCHAR(50),
+    gr_no NVARCHAR(50),
+    student_name NVARCHAR(255) NOT NULL,
+    father_name NVARCHAR(255),
+    father_cnic NVARCHAR(50),
+    father_mobile NVARCHAR(50),
+    dob DATE,
+    admission_date DATE,
     gender NVARCHAR(20),
-    studentCode NVARCHAR(50),
-    rollNumber NVARCHAR(50) NOT NULL,
-    contactNumber NVARCHAR(50),
-    cnicBForm NVARCHAR(50),
     address NVARCHAR(MAX),
-    campusName NVARCHAR(255),
-    country NVARCHAR(100),
-    province NVARCHAR(100),
     city NVARCHAR(100),
-    tehsil NVARCHAR(100),
-    firstName NVARCHAR(255) NOT NULL,
-    lastName NVARCHAR(255),
-    fatherName NVARCHAR(255),
-    className NVARCHAR(255),
-    sectionName NVARCHAR(50),
-    session NVARCHAR(50),
+    batch_no NVARCHAR(50),
     status NVARCHAR(20) DEFAULT 'Active',
     outstandingFees DECIMAL(18, 2) DEFAULT 0,
-    campusType NVARCHAR(50),
-    profileImage NVARCHAR(MAX),
-    CONSTRAINT FK_Students_Campuses FOREIGN KEY (campusId) REFERENCES Campuses(id),
-    CONSTRAINT FK_Students_Classes FOREIGN KEY (classId) REFERENCES Classes(id)
+    CONSTRAINT FK_Students_Campuses FOREIGN KEY (campus_id) REFERENCES Campuses(id),
+    CONSTRAINT FK_Students_Classes FOREIGN KEY (class_id) REFERENCES Classes(id)
 );
 
 -- 4. Users Table
@@ -117,6 +108,33 @@ CREATE TABLE FeeVouchers (
     lateFine DECIMAL(18, 2) DEFAULT 0,
     CONSTRAINT FK_FeeVouchers_Students FOREIGN KEY (studentId) REFERENCES Students(id),
     CONSTRAINT FK_FeeVouchers_Campuses FOREIGN KEY (campusId) REFERENCES Campuses(id)
+);
+
+-- 8. FeeSettings Table
+CREATE TABLE FeeSettings (
+    id NVARCHAR(50) PRIMARY KEY,
+    class_id NVARCHAR(50) NOT NULL,
+    monthly_fee DECIMAL(18, 2) DEFAULT 0,
+    admission_fee DECIMAL(18, 2) DEFAULT 0,
+    security_fee DECIMAL(18, 2) DEFAULT 0,
+    last_updated DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_FeeSettings_Classes FOREIGN KEY (class_id) REFERENCES Classes(id)
+);
+
+-- 9. Fees Table (Professional Tracking)
+CREATE TABLE Fees (
+    id NVARCHAR(50) PRIMARY KEY,
+    student_id NVARCHAR(50) NOT NULL,
+    amount DECIMAL(18, 2) NOT NULL,
+    month INT NOT NULL,
+    year INT NOT NULL,
+    status NVARCHAR(20) DEFAULT 'Unpaid', -- Unpaid, Pending, Paid
+    transaction_ref NVARCHAR(255),
+    payment_method NVARCHAR(50),
+    payment_date DATETIME,
+    due_date DATE,
+    created_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_Fees_Students FOREIGN KEY (student_id) REFERENCES Students(id)
 );
 
 -- Insert initial admin user (Password: admin123)

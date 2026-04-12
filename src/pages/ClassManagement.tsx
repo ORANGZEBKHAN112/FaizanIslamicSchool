@@ -84,8 +84,8 @@ export default function ClassManagement() {
   };
 
   const filteredClasses = classes.filter(c => {
-    const matchesSearch = c.className.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCampus = selectedCampus === 'all' || c.campusId === selectedCampus;
+    const matchesSearch = c?.className?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCampus = selectedCampus === 'all' || c?.campusId === selectedCampus;
     return matchesSearch && matchesCampus;
   });
 
@@ -130,7 +130,7 @@ export default function ClassManagement() {
           >
             <option value="all">All Campuses</option>
             {campuses.map(c => (
-              <option key={c.id} value={c.id}>{c.campusName}</option>
+              <option key={c?.id} value={c?.id}>{c?.campusName}</option>
             ))}
           </select>
         </div>
@@ -147,26 +147,31 @@ export default function ClassManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredClasses.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-8 py-12 text-center text-sm text-slate-400 font-medium italic">No classes found.</td>
+                </tr>
+              )}
               {filteredClasses.map((cls) => (
-                <tr key={cls.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                <tr key={cls?.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-primary/10 text-primary rounded-2xl group-hover:bg-primary group-hover:text-white transition-all">
                         <BookOpen className="w-5 h-5" />
                       </div>
-                      <span className="font-bold text-slate-900 dark:text-white">{cls.className}</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{cls?.className}</span>
                     </div>
                   </td>
                   <td className="px-8 py-5">
                     <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                      {cls.sectionName || 'N/A'}
+                      {cls?.sectionName || 'N/A'}
                     </span>
                   </td>
                   <td className="px-8 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {campuses.find(c => c.id === cls.campusId)?.campusName || 'Unknown'}
+                    {cls?.campusName || 'Unknown'}
                   </td>
                   <td className="px-8 py-5">
-                    <div className="text-sm font-black text-slate-900 dark:text-white">{cls.capacity}</div>
+                    <div className="text-sm font-black text-slate-900 dark:text-white">{cls?.capacity}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Students</div>
                   </td>
                   <td className="px-8 py-5 text-right">
@@ -182,7 +187,7 @@ export default function ClassManagement() {
                       <motion.button 
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => handleDelete(cls.id)}
+                        onClick={() => handleDelete(cls?.id)}
                         className="p-2.5 text-slate-400 hover:text-accent hover:bg-accent/10 rounded-xl transition-all"
                       >
                         <Trash2 className="w-4 h-4" />

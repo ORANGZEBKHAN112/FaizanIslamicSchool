@@ -63,20 +63,6 @@ export interface Student {
   profileImage?: string;
 }
 
-export interface Staff {
-  id: string;
-  fullName: string;
-  cnic: string;
-  qualification: string;
-  salary: number;
-  joiningDate: string;
-  campusId: string;
-  role: UserRole;
-  email: string;
-  isActive: boolean;
-  profileImage?: string;
-}
-
 export interface FeeStructure {
   id: string;
   campusId: string;
@@ -100,56 +86,25 @@ export interface FeeVoucher {
   status: 'Paid' | 'Unpaid' | 'Overdue';
   generatedOn: string;
   lateFine?: number;
+  studentName?: string;
+  rollNumber?: string;
 }
 
-export interface ExamTerm {
+export interface Fee {
   id: string;
-  termName: string; // Monthly, Mid, Final, Test Session
-  campusId: string;
-  status: 'Active' | 'Locked';
-}
-
-export interface DateSheet {
-  id: string;
-  examTermId: string;
-  classId: string;
-  subjectName: string;
-  examDate: string;
-  startTime: string;
-  endTime: string;
-  roomNo?: string;
-  invigilatorId?: string;
-}
-
-export interface GradePolicy {
-  id: string;
-  minPercentage: number;
-  maxPercentage: number;
-  grade: string;
-  gpa: number;
-  remarks: string;
-}
-
-export interface Exam {
-  id: string;
-  campusId: string;
-  examName: string;
-  examDate: string;
-  totalMarks: number;
-  examTermId?: string;
-}
-
-export interface StudentResult {
-  id: string;
-  examId: string;
   studentId: string;
-  subjectName: string;
-  obtainedMarks: number;
-  totalMarks: number;
-  grade: string;
-  remarks?: string;
-  status: 'Present' | 'Absent' | 'Cheating' | 'Withheld';
-  isDraft: boolean;
+  studentName?: string;
+  rollNumber?: string;
+  amount: number;
+  month: number;
+  year: number;
+  status: 'Unpaid' | 'Pending' | 'Paid';
+  transactionRef?: string;
+  paymentMethod?: string;
+  paymentDate?: string;
+  dueDate: string;
+  createdAt?: string;
+  campusId?: string;
 }
 
 export interface QuickPayConfig {
@@ -190,57 +145,12 @@ export interface AuthResponse {
   user: User;
 }
 
-export interface Attendance {
+export interface FeeSetting {
   id: string;
-  studentId: string;
   classId: string;
-  campusId: string;
-  date: string;
-  status: 'Present' | 'Absent' | 'Late' | 'Leave';
-  remarks?: string;
-  markedBy: string; // Staff ID
-}
-
-export interface ActivityLog {
-  id: string;
-  userId: string;
-  userName: string;
-  action: string;
-  details: string;
-  timestamp: string;
-  ipAddress?: string;
-}
-
-export interface InventoryItem {
-  id: string;
-  itemName: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  minThreshold: number;
+  className?: string;
+  monthlyFee: number;
+  admissionFee: number;
+  securityFee: number;
   lastUpdated: string;
-}
-
-export interface SalarySlip {
-  id: string;
-  staffId: string;
-  month: number;
-  year: number;
-  basicSalary: number;
-  allowances: number;
-  deductions: number;
-  netSalary: number;
-  status: 'Paid' | 'Pending';
-  paymentDate?: string;
-}
-
-export interface Notice {
-  id: string;
-  campusId: string; // 'all' for all campuses
-  title: string;
-  content: string;
-  date: string;
-  priority: 'Low' | 'Medium' | 'High';
-  targetRoles: UserRole[];
-  isActive: boolean;
 }

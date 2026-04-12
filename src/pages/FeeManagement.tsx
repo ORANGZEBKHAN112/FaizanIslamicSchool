@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, FileText, Download, CheckCircle, AlertCircle, Filter, XCircle } from 'lucide-react';
-import { FeeVoucher, Student, Campus, Class, FeeStructure } from '../types';
+import { Plus, Search, FileText, Download, CheckCircle, AlertCircle, Filter, XCircle, CreditCard, Clock } from 'lucide-react';
+import { Fee, Student, Campus, Class, FeeStructure } from '../types';
 import { dataService } from '../services/dataService';
+import axios from 'axios';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 
 export default function FeeManagement() {
-  const [vouchers, setVouchers] = useState<FeeVoucher[]>([]);
+  const [vouchers, setVouchers] = useState<Fee[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -17,7 +18,7 @@ export default function FeeManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedVoucher, setSelectedVoucher] = useState<FeeVoucher | null>(null);
+  const [selectedVoucher, setSelectedVoucher] = useState<Fee | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   
   const [structureForm, setStructureForm] = useState({
@@ -35,7 +36,7 @@ export default function FeeManagement() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   useEffect(() => {
-    const unsubVouchers = dataService.subscribe('feeVouchers', setVouchers);
+    const unsubVouchers = dataService.subscribe('fees', setVouchers);
     const unsubStudents = dataService.subscribe('students', setStudents);
     const unsubCampuses = dataService.subscribe('campuses', setCampuses);
     const unsubClasses = dataService.subscribe('classes', setClasses);
@@ -51,63 +52,12 @@ export default function FeeManagement() {
   }, []);
 
   const generateVouchers = async () => {
-    const month = new Date().getMonth() + 1;
-    const year = new Date().getFullYear();
-    const dueDate = new Date(year, month, 10).toISOString().split('T')[0];
-
-    const activeStudents = students.filter(s => s.status === 'Active');
-    
-    if (activeStudents.length === 0) {
-      toast.error('No active students found to generate vouchers.');
-      return;
-    }
-
-    if (feeStructures.length === 0) {
-      toast.error('No fee structures defined. Please set up fee structures first.');
-      return;
-    }
-
-    let count = 0;
     try {
-      for (const student of activeStudents) {
-        const structure = feeStructures.find(f => f.campusId === student.campusId && f.classId === student.classId);
-        if (structure) {
-          // Monthly voucher typically includes tuition, transport, and misc
-          const totalAmount = structure.tuitionFee + structure.transportFee + structure.miscFee;
-          
-          // Check if voucher already exists for this month/year
-          const exists = vouchers.find(v => v.studentId === student.id && v.voucherMonth === month && v.voucherYear === year);
-          if (!exists) {
-            await dataService.add('feeVouchers', {
-              studentId: student.id,
-              campusId: student.campusId,
-              voucherMonth: month,
-              voucherYear: year,
-              dueDate,
-              totalAmount,
-              paidAmount: 0,
-              status: 'Unpaid',
-              generatedOn: new Date().toISOString()
-            });
-
-            // Update student outstanding fees
-            const newOutstanding = (student.outstandingFees || 0) + totalAmount;
-            await dataService.update('students', student.id, {
-              outstandingFees: newOutstanding
-            });
-
-            count++;
-          }
-        }
-      }
-      if (count > 0) {
-        toast.success(`${count} vouchers generated for current month!`);
-      } else {
-        toast.info('Vouchers already exist for all students for this month.');
-      }
+      const result = await dataService.fetchGenerateFees();
+      toast.success(result.message);
     } catch (error) {
-      console.error('Error generating vouchers:', error);
-      toast.error('Failed to generate vouchers');
+      console.error('Error generating fees:', error);
+      toast.error('Failed to generate monthly fees');
     }
   };
 
@@ -115,56 +65,43 @@ export default function FeeManagement() {
     e.preventDefault();
     if (!selectedVoucher) return;
 
-    if (paymentAmount <= 0) {
-      toast.error('Please enter a valid payment amount');
-      return;
-    }
-
     try {
-      const newPaidAmount = selectedVoucher.paidAmount + paymentAmount;
-      const isFullyPaid = newPaidAmount >= selectedVoucher.totalAmount;
-      
-      // 1. Update Voucher
-      await dataService.update('feeVouchers', selectedVoucher.id, {
-        status: isFullyPaid ? 'Paid' : 'Unpaid',
-        paidAmount: newPaidAmount
+      // For QuickPay simulation, we set status to 'Pending' first
+      await dataService.update('fees', selectedVoucher.id, {
+        status: 'Pending',
+        paymentMethod: 'QuickPay',
+        amount: selectedVoucher.amount
       });
 
-      // 2. Update Student Outstanding Fees
-      const student = students.find(s => s.id === selectedVoucher.studentId);
-      if (student) {
-        const newOutstanding = Math.max(0, (student.outstandingFees || 0) - paymentAmount);
-        await dataService.update('students', student.id, {
-          outstandingFees: newOutstanding
-        });
-      }
-
-      // 3. Add Transaction Log
-      await dataService.add('transactions', {
-        studentId: selectedVoucher.studentId,
-        voucherId: selectedVoucher.id,
-        amount: paymentAmount,
-        status: 'Success',
-        transactionDate: new Date().toISOString()
-      });
-      
+      toast.success('QuickPay payment initiated. Status set to Pending.');
       setIsPaymentModalOpen(false);
-      setSelectedVoucher(null);
-      setPaymentAmount(0);
-      toast.success('Payment recorded successfully.');
+
+      // Simulate QuickPay Callback after 3 seconds
+      setTimeout(async () => {
+        try {
+          await axios.post('/api/payments/quickpay-callback', {
+            transaction_id: `QP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+            fee_id: selectedVoucher.id
+          });
+          toast.success('QuickPay payment confirmed via callback!');
+        } catch (err) {
+          console.error('Callback simulation failed:', err);
+        }
+      }, 3000);
+
     } catch (error) {
-      console.error('Error recording payment:', error);
-      toast.error('Failed to record payment.');
+      console.error('Error initiating payment:', error);
+      toast.error('Failed to initiate payment');
     }
   };
 
-  const openPaymentModal = (voucher: FeeVoucher) => {
+  const openPaymentModal = (voucher: Fee) => {
     setSelectedVoucher(voucher);
-    setPaymentAmount(voucher.totalAmount - voucher.paidAmount);
+    setPaymentAmount(voucher.amount);
     setIsPaymentModalOpen(true);
   };
 
-  const downloadPDF = (voucher: FeeVoucher) => {
+  const downloadPDF = (voucher: Fee) => {
     const student = students.find(s => s.id === voucher.studentId);
     const campus = campuses.find(c => c.id === voucher.campusId);
     const cls = classes.find(c => c.id === student?.classId);
@@ -183,15 +120,15 @@ export default function FeeManagement() {
     doc.setFontSize(10);
     doc.setTextColor(0);
     doc.text(`Voucher ID: ${voucher.id.substring(0, 8)}`, 20, 45);
-    doc.text(`Date: ${new Date(voucher.generatedOn).toLocaleDateString()}`, 150, 45);
+    doc.text(`Date: ${new Date(voucher.createdAt || '').toLocaleDateString()}`, 150, 45);
     
     doc.setDrawColor(200);
     doc.line(20, 50, 190, 50);
     
-    doc.text(`Student Name: ${student?.firstName} ${student?.lastName}`, 20, 60);
+    doc.text(`Student Name: ${student?.firstName} ${student?.fatherName}`, 20, 60);
     doc.text(`Roll Number: ${student?.rollNumber}`, 20, 67);
     doc.text(`Class: ${cls?.className} - ${cls?.sectionName}`, 20, 74);
-    doc.text(`Month/Year: ${voucher.voucherMonth}/${voucher.voucherYear}`, 150, 60);
+    doc.text(`Month/Year: ${voucher.month}/${voucher.year}`, 150, 60);
     doc.text(`Due Date: ${voucher.dueDate}`, 150, 67);
     
     // Table
@@ -202,7 +139,7 @@ export default function FeeManagement() {
       ['Exam Fee', `Rs. ${structure?.examFee?.toLocaleString() || '0'}`],
       ['Transport Fee', `Rs. ${structure?.transportFee?.toLocaleString() || '0'}`],
       ['Misc. Fee', `Rs. ${structure?.miscFee?.toLocaleString() || '0'}`],
-      [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.totalAmount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
+      [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.amount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
     ];
 
     autoTable(doc, {
@@ -219,7 +156,7 @@ export default function FeeManagement() {
     doc.text(`Status: ${voucher.status}`, 20, finalY + 15);
     doc.text('Authorized Signature: ____________________', 120, finalY + 30);
 
-    doc.save(`Voucher_${student?.rollNumber}_${voucher.voucherMonth}.pdf`);
+    doc.save(`Voucher_${student?.rollNumber}_${voucher.month}.pdf`);
   };
 
   const downloadAllVouchers = () => {
@@ -248,9 +185,9 @@ export default function FeeManagement() {
       doc.setFontSize(10);
       doc.setTextColor(0);
       doc.text(`Voucher: ${voucher.id.substring(0, 8)}`, 20, currentY + 15);
-      doc.text(`Student: ${student?.firstName} ${student?.lastName} (${student?.rollNumber})`, 20, currentY + 22);
+      doc.text(`Student: ${student?.firstName} ${student?.fatherName} (${student?.rollNumber})`, 20, currentY + 22);
       doc.text(`Class: ${cls?.className}`, 20, currentY + 29);
-      doc.text(`Amount: Rs. ${voucher.totalAmount}`, 150, currentY + 22);
+      doc.text(`Amount: Rs. ${voucher.amount}`, 150, currentY + 22);
       doc.text(`Due: ${voucher.dueDate}`, 150, currentY + 29);
       
       const structure = feeStructures.find(f => f.campusId === student?.campusId && f.classId === student?.classId);
@@ -260,7 +197,7 @@ export default function FeeManagement() {
         ['Exam Fee', `Rs. ${structure?.examFee?.toLocaleString() || '0'}`],
         ['Transport Fee', `Rs. ${structure?.transportFee?.toLocaleString() || '0'}`],
         ['Misc. Fee', `Rs. ${structure?.miscFee?.toLocaleString() || '0'}`],
-        [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.totalAmount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
+        [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.amount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
       ];
 
       autoTable(doc, {
@@ -278,8 +215,8 @@ export default function FeeManagement() {
   };
 
   const filteredVouchers = vouchers.filter(v => {
-    const student = students.find(s => s.id === v.studentId);
-    const matchesSearch = student ? `${student.firstName} ${student.lastName} ${student.rollNumber}`.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+    const searchStr = v.studentName ? `${v.studentName} ${v.rollNumber}` : '';
+    const matchesSearch = searchStr.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCampus = selectedCampus === 'all' || v.campusId === selectedCampus;
     const matchesStatus = selectedStatus === 'all' || v.status === selectedStatus;
     return matchesSearch && matchesCampus && matchesStatus;
@@ -539,20 +476,23 @@ export default function FeeManagement() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredVouchers.map((voucher) => {
-                const student = students.find(s => s.id === voucher.studentId);
                 return (
                   <tr key={voucher.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                     <td className="px-8 py-5 font-mono text-[10px] font-black text-slate-400">{voucher.id.substring(0, 8)}</td>
                     <td className="px-8 py-5">
-                      <div className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{student?.firstName} {student?.lastName}</div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{student?.rollNumber}</div>
+                      <div className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{voucher.studentName || 'Unknown Student'}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{voucher.rollNumber || 'N/A'}</div>
                     </td>
-                    <td className="px-8 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">{voucher.voucherMonth}/{voucher.voucherYear}</td>
-                    <td className="px-8 py-5 font-black text-slate-900 dark:text-white">Rs. {voucher.totalAmount}</td>
+                    <td className="px-8 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">{voucher.month}/{voucher.year}</td>
+                    <td className="px-8 py-5 font-black text-slate-900 dark:text-white">Rs. {voucher.amount}</td>
                     <td className="px-8 py-5">
                       {voucher.status === 'Paid' ? (
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-success/10 text-success">
                           <CheckCircle className="w-3 h-3" /> Paid
+                        </span>
+                      ) : voucher.status === 'Pending' ? (
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500">
+                          <Clock className="w-3 h-3" /> Pending
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-accent/10 text-accent">
@@ -568,9 +508,9 @@ export default function FeeManagement() {
                             whileTap={{ scale: 0.9 }}
                             onClick={() => openPaymentModal(voucher)}
                             className="p-2.5 text-success hover:bg-success/10 rounded-xl transition-all"
-                            title="Record Payment"
+                            title="Pay with QuickPay"
                           >
-                            <CheckCircle className="w-5 h-5" />
+                            <CreditCard className="w-5 h-5" />
                           </motion.button>
                         )}
                         <motion.button 

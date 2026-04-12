@@ -8,14 +8,8 @@ import CampusManagement from './pages/CampusManagement';
 import ClassManagement from './pages/ClassManagement';
 import StudentManagement from './pages/StudentManagement';
 import FeeManagement from './pages/FeeManagement';
-import Attendance from './pages/Attendance';
-import Exams from './pages/Exams';
-import ActivityLogs from './pages/ActivityLogs';
-import Inventory from './pages/Inventory';
-import StaffPayroll from './pages/StaffPayroll';
-import StaffManagement from './pages/StaffManagement';
+import FeeSettings from './pages/FeeSettings';
 import QuickPaySetup from './pages/QuickPaySetup';
-import StudentPortal from './pages/StudentPortal';
 import Layout from './components/Layout';
 
 export default function App() {
@@ -58,22 +52,14 @@ export default function App() {
           {(user?.role === 'Super Admin' || user?.role === 'Admin') && (
             <>
               <Route path="campuses" element={<CampusManagement />} />
+              {user?.role === 'Super Admin' && (
+                <Route path="fee-settings" element={<FeeSettings />} />
+              )}
               <Route path="classes" element={<ClassManagement />} />
               <Route path="students" element={<StudentManagement />} />
-              <Route path="attendance" element={<Attendance user={user} />} />
               <Route path="fees" element={<FeeManagement />} />
-              <Route path="exams" element={<Exams user={user} />} />
-              <Route path="staff" element={<StaffManagement />} />
               <Route path="quickpay" element={<QuickPaySetup />} />
-              <Route path="activity-logs" element={<ActivityLogs />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="payroll" element={<StaffPayroll />} />
             </>
-          )}
-
-          {/* Student Portal */}
-          {user?.role === 'Student' && (
-            <Route path="portal" element={<StudentPortal user={user} />} />
           )}
         </Route>
 

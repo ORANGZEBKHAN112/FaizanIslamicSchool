@@ -79,8 +79,8 @@ export default function CampusManagement() {
   };
 
   const filteredCampuses = campuses.filter(c => 
-    c.campusName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.campusCode.toLowerCase().includes(searchTerm.toLowerCase())
+    c?.campusName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c?.campusCode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -132,17 +132,17 @@ export default function CampusManagement() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredCampuses.map((campus) => (
-                <tr key={campus.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-                  <td className="px-8 py-5 font-mono text-[10px] font-black text-primary uppercase tracking-widest">{campus.campusCode}</td>
+                <tr key={campus?.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                  <td className="px-8 py-5 font-mono text-[10px] font-black text-primary uppercase tracking-widest">{campus?.campusCode}</td>
                   <td className="px-8 py-5">
-                    <div className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{campus.campusName}</div>
+                    <div className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{campus?.campusName}</div>
                   </td>
                   <td className="px-8 py-5">
-                    <div className="text-sm font-medium text-slate-600 dark:text-slate-400">{campus.email}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{campus.phone}</div>
+                    <div className="text-sm font-medium text-slate-600 dark:text-slate-400">{campus?.email}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{campus?.phone}</div>
                   </td>
                   <td className="px-8 py-5">
-                    {campus.isActive ? (
+                    {campus?.isActive ? (
                       <span className="inline-flex items-center gap-2 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-success/10 text-success">
                         <CheckCircle className="w-3 h-3" /> Active
                       </span>
@@ -165,7 +165,7 @@ export default function CampusManagement() {
                       <motion.button 
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => handleDelete(campus.id)}
+                        onClick={() => handleDelete(campus?.id)}
                         className="p-2.5 text-slate-400 hover:text-accent hover:bg-accent/10 rounded-xl transition-all"
                       >
                         <Trash2 className="w-4 h-4" />

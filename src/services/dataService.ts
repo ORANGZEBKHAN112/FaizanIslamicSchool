@@ -8,13 +8,10 @@ const getEndpoint = (collectionName: string) => {
     case 'students': return `${API_BASE_URL}/students`;
     case 'campuses': return `${API_BASE_URL}/campuses`;
     case 'classes': return `${API_BASE_URL}/classes`;
-    case 'staff': return `${API_BASE_URL}/staff`;
     case 'users': return `${API_BASE_URL}/auth/register`;
-    case 'feevouchers': return `${API_BASE_URL}/feevouchers`;
+    case 'fees':
+    case 'feevouchers': return `${API_BASE_URL}/fees`;
     case 'feestructures': return `${API_BASE_URL}/feestructures`;
-    case 'examterms': return `${API_BASE_URL}/examterms`;
-    case 'exams': return `${API_BASE_URL}/exams`;
-    case 'studentresults': return `${API_BASE_URL}/studentresults`;
     case 'transactions': return `${API_BASE_URL}/transactions`;
     default: return `${API_BASE_URL}/${name}`;
   }
@@ -60,6 +57,34 @@ export const dataService = {
     } catch (error) {
       console.error(`Error fetching from ${collectionName}:`, error);
       return [];
+    }
+  },
+
+  async fetchStudents() {
+    return this.getAll('students');
+  },
+
+  async fetchCampuses() {
+    const data = await this.getAll('campuses');
+    console.log('Campuses from API:', data);
+    return data;
+  },
+
+  async fetchClasses() {
+    return this.getAll('classes');
+  },
+
+  async fetchFeeSettings() {
+    return this.getAll('fee-settings');
+  },
+
+  async fetchGenerateFees() {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/generate-monthly-fees`);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating fees:', error);
+      throw error;
     }
   },
 
