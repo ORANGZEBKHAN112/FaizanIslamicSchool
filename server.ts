@@ -84,6 +84,13 @@ let sqlConfig: sql.config = {
   }
 };
 
+// Check if we are on Windows for localdb support
+const isWindows = process.platform === 'win32';
+if (!isWindows && sqlConfig.server.toLowerCase().includes('localdb')) {
+  console.warn("⚠️ WARNING: (localdb) detected on non-Windows platform. This will likely fail.");
+  console.warn("Please provide a real SQL Server address in environment variables or appsettings.json.");
+}
+
 // Try to load from appsettings.json if it exists (common in .NET migrations)
 const appSettingsPath = path.join(process.cwd(), 'Backend', 'FaizanIslamicSchool.WebApi', 'appsettings.json');
 if (fs.existsSync(appSettingsPath)) {
@@ -108,6 +115,13 @@ if (fs.existsSync(appSettingsPath)) {
         if (k === 'password' || k === 'pwd') sqlConfig.password = v;
         if (k === 'encrypt') sqlConfig.options.encrypt = v.toLowerCase() === 'true';
         if (k === 'trustservercertificate') sqlConfig.options.trustServerCertificate = v.toLowerCase() === 'true';
+        if (k === 'trusted_connection' || k === 'integrated security') {
+          if (v.toLowerCase() === 'true' || v.toLowerCase() === 'sspi') {
+            // Integrated security usually means empty user/password for tedious
+            sqlConfig.user = "";
+            sqlConfig.password = "";
+          }
+        }
       });
     }
   } catch (err) {
@@ -138,7 +152,8 @@ const TABLE_MAP: Record<string, string> = {
   classes: "Classes",
   users: "Users",
   feevouchers: "FeeVouchers",
-  fees: "Fees"
+  fees: "Fees",
+  transactions: "Transactions"
 };
 
 let pool: sql.ConnectionPool;
@@ -158,10 +173,28 @@ async function connectToDb() {
         BEGIN
           ALTER TABLE Students ADD outstandingFees DECIMAL(18, 2) DEFAULT 0;
         END
+
+        IF OBJECT_ID('Transactions', 'U') IS NOT NULL
+        BEGIN
+          -- Table exists
+          PRINT 'Transactions table exists'
+        END
+        ELSE
+        BEGIN
+          CREATE TABLE Transactions (
+            id NVARCHAR(50) PRIMARY KEY,
+            student_id NVARCHAR(50) NOT NULL,
+            voucher_id NVARCHAR(50),
+            amount DECIMAL(18, 2) NOT NULL,
+            status NVARCHAR(20) DEFAULT 'Pending',
+            transaction_date DATETIME DEFAULT GETDATE(),
+            response_log NVARCHAR(MAX)
+          );
+        END
       `);
-      console.log("Verified Students table schema (outstandingFees column)");
+      console.log("Verified database schema (Students and Transactions tables)");
     } catch (schemaErr) {
-      console.error("Error verifying Students schema:", schemaErr);
+      console.error("Error verifying database schema:", schemaErr);
     }
 
     await seedAdmin();
@@ -233,6 +266,7 @@ async function startServer() {
   app.get("/api/students", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       
       const query = `
         SELECT 
@@ -277,6 +311,7 @@ async function startServer() {
   app.get("/api/campuses", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       
       const query = `
         SELECT 
@@ -517,6 +552,7 @@ async function startServer() {
   app.get("/api/fees", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       
       const query = `
         SELECT 
@@ -1071,7 +1107,8 @@ async function startServer() {
     if (!tableName) return res.status(404).json({ message: "Collection not supported in SQL yet" });
 
     try {
-      if (!pool) throw new Error("Database connection not established");
+      if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const result = await pool.request().query(`SELECT * FROM ${tableName}`);
       res.json(result.recordset);
     } catch (err) {
@@ -1091,7 +1128,8 @@ async function startServer() {
     const values = Object.keys(data).map(key => `@${key}`).join(", ");
 
     try {
-      if (!pool) throw new Error("Database connection not established");
+      if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const request = pool.request();
       Object.entries(data).forEach(([key, value]) => {
         request.input(key, value);
@@ -1114,7 +1152,8 @@ async function startServer() {
     const updates = Object.keys(req.body).map(key => `${key} = @${key}`).join(", ");
 
     try {
-      if (!pool) throw new Error("Database connection not established");
+      if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const request = pool.request();
       request.input("id", id);
       Object.entries(req.body).forEach(([key, value]) => {
@@ -1136,7 +1175,8 @@ async function startServer() {
     if (!tableName) return res.status(404).json({ message: "Collection not supported in SQL yet" });
 
     try {
-      if (!pool) throw new Error("Database connection not established");
+      if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       await pool.request().input("id", id).query(`DELETE FROM ${tableName} WHERE id = @id`);
       res.status(204).send();
     } catch (err) {
