@@ -66,7 +66,7 @@ const getVal = (row: any, ...keys: string[]) => {
 };
 
 // SQL Server Configuration
-const sqlConfig: sql.config = {
+let sqlConfig: sql.config = {
   user: process.env.SQL_USER || "sa",
   password: process.env.SQL_PASSWORD || "Nimda@2526$",
   database: process.env.SQL_DATABASE || "testdb12",
@@ -78,10 +78,47 @@ const sqlConfig: sql.config = {
     idleTimeoutMillis: 30000
   },
   options: {
-    encrypt: true,
-    trustServerCertificate: true
+    encrypt: process.env.SQL_ENCRYPT === "true" || true,
+    trustServerCertificate: process.env.SQL_TRUST_SERVER_CERTIFICATE === "true" || true
   }
 };
+
+// Try to load from appsettings.json if it exists (common in .NET migrations)
+const appSettingsPath = path.join(process.cwd(), 'Backend', 'FaizanIslamicSchool.WebApi', 'appsettings.json');
+if (fs.existsSync(appSettingsPath)) {
+  try {
+    const appSettings = JSON.parse(fs.readFileSync(appSettingsPath, 'utf8'));
+    const connString = appSettings?.ConnectionStrings?.DefaultConnection;
+    if (connString) {
+      console.log("Found appsettings.json, parsing connection string...");
+      // Simple parser for SQL connection string
+      const parts = connString.split(';');
+      parts.forEach((part: string) => {
+        const [key, value] = part.split('=');
+        if (!key || !value) return;
+        const k = key.trim().toLowerCase();
+        const v = value.trim();
+        
+        if (k === 'server' || k === 'data source') {
+          if (v.includes('\\')) {
+            sqlConfig.server = v.split('\\')[0];
+            // LocalDB or named instances might need more complex handling in tedious
+          } else {
+            sqlConfig.server = v;
+          }
+        }
+        if (k === 'database' || k === 'initial catalog') sqlConfig.database = v;
+        if (k === 'user id' || k === 'uid') sqlConfig.user = v;
+        if (k === 'password' || k === 'pwd') sqlConfig.password = v;
+        if (k === 'trusted_connection' && v.toLowerCase() === 'true') {
+          sqlConfig.options.trustServerCertificate = true;
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Error parsing appsettings.json:", err);
+  }
+}
 
 
 const TABLE_MAP: Record<string, string> = {
