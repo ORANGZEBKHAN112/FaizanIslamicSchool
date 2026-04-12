@@ -69,8 +69,8 @@ const getVal = (row: any, ...keys: string[]) => {
 let sqlConfig: sql.config = {
   user: process.env.SQL_USER || "", // Empty for Windows Auth/Integrated Security
   password: process.env.SQL_PASSWORD || "",
-  database: process.env.SQL_DATABASE || "FaizanIslamincDb",
-  server: process.env.SQL_SERVER || "(localdb)\\MSSQLLocalDB",
+  database: process.env.SQL_DATABASE || "testdb12",
+  server: process.env.SQL_SERVER || "51.79.177.9",
   port: parseInt(process.env.SQL_PORT || "1433"),
   pool: {
     max: 10,
@@ -153,15 +153,20 @@ const TABLE_MAP: Record<string, string> = {
   users: "Users",
   feevouchers: "FeeVouchers",
   fees: "Fees",
-  transactions: "Transactions"
+  transactions: "Transactions",
+  feestructures: "FeeStructures"
 };
 
 let pool: sql.ConnectionPool;
 
 async function connectToDb() {
   try {
+    if (!sqlConfig.user || !sqlConfig.server || sqlConfig.server.includes('localdb')) {
+      console.warn("⚠️ Database credentials missing or using (localdb) on cloud. Connection will likely fail.");
+    }
+    
     pool = await sql.connect(sqlConfig);
-    console.log("Connected to MSSQL");
+    console.log("✅ Connected to MSSQL successfully");
     
     // Ensure outstanding_fees column exists in Students table
     try {
@@ -186,7 +191,6 @@ async function connectToDb() {
 
         IF OBJECT_ID('Transactions', 'U') IS NOT NULL
         BEGIN
-          -- Table exists
           PRINT 'Transactions table exists'
         END
         ELSE
@@ -199,6 +203,22 @@ async function connectToDb() {
             status NVARCHAR(20) DEFAULT 'Pending',
             transaction_date DATETIME DEFAULT GETDATE(),
             response_log NVARCHAR(MAX)
+          );
+        END
+
+        IF OBJECT_ID('FeeSettings', 'U') IS NOT NULL
+        BEGIN
+          PRINT 'FeeSettings table exists'
+        END
+        ELSE
+        BEGIN
+          CREATE TABLE FeeSettings (
+            id NVARCHAR(50) PRIMARY KEY,
+            class_id NVARCHAR(50) NOT NULL,
+            monthly_fee DECIMAL(18, 2) DEFAULT 0,
+            admission_fee DECIMAL(18, 2) DEFAULT 0,
+            security_fee DECIMAL(18, 2) DEFAULT 0,
+            last_updated DATETIME DEFAULT GETDATE()
           );
         END
       `);
@@ -350,6 +370,7 @@ async function startServer() {
   app.post("/api/campuses", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const c = req.body;
       const id = crypto.randomUUID();
       
@@ -376,6 +397,7 @@ async function startServer() {
   app.put("/api/campuses/:id", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const { id } = req.params;
       const c = req.body;
       
@@ -405,6 +427,7 @@ async function startServer() {
   app.get("/api/classes", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       
       const query = `
         SELECT 
@@ -431,6 +454,7 @@ async function startServer() {
   app.post("/api/classes", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const c = req.body;
       const id = crypto.randomUUID();
       
@@ -456,6 +480,7 @@ async function startServer() {
   app.put("/api/classes/:id", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const { id } = req.params;
       const c = req.body;
       
@@ -487,6 +512,7 @@ async function startServer() {
   app.get("/api/fee-settings", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       
       const query = `
         SELECT 
@@ -512,6 +538,7 @@ async function startServer() {
   app.post("/api/fee-settings", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const f = req.body;
       
       // Check if fee settings already exist for this class
@@ -604,6 +631,7 @@ async function startServer() {
   app.put("/api/fees/:id", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const { id } = req.params;
       const f = req.body;
       
@@ -638,6 +666,7 @@ async function startServer() {
   app.post("/api/payments/quickpay-callback", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const { transaction_id, fee_id } = req.body;
 
       if (!fee_id || !transaction_id) {
@@ -667,14 +696,15 @@ async function startServer() {
   app.post("/api/generate-monthly-fees", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       
       const month = new Date().getMonth() + 1;
       const year = new Date().getFullYear();
       const dueDate = new Date(year, month, 10).toISOString().split('T')[0];
 
-      // Fetch all active students and their class fee settings
+      // Fetch all active students and their class fee settings, including outstanding_fees
       const query = `
-        SELECT s.id AS student_id, fs.monthly_fee
+        SELECT s.id AS student_id, fs.monthly_fee, s.outstanding_fees
         FROM Students s
         JOIN FeeSettings fs ON s.class_id = fs.class_id
         WHERE s.status = 'Active'
@@ -685,6 +715,26 @@ async function startServer() {
       
       let count = 0;
       for (const student of students) {
+        // 1. Handle Arrears (Outstanding Fees from Excel)
+        // We check if an 'Arrears' record (month=0, year=0) already exists
+        if (student.outstanding_fees > 0) {
+          const arrearsCheck = await pool.request()
+            .input("sId", student.student_id)
+            .query("SELECT id FROM Fees WHERE student_id = @sId AND month = 0 AND year = 0");
+          
+          if (arrearsCheck.recordset.length === 0) {
+            await pool.request()
+              .input("id", crypto.randomUUID())
+              .input("student_id", student.student_id)
+              .input("amount", student.outstanding_fees)
+              .query(`
+                INSERT INTO Fees (id, student_id, amount, month, year, status, due_date)
+                VALUES (@id, @student_id, @amount, 0, 0, 'Unpaid', GETDATE())
+              `);
+          }
+        }
+
+        // 2. Handle Monthly Fee
         // Check if fee already exists for this month/year
         const checkQuery = `SELECT id FROM Fees WHERE student_id = @sId AND month = @m AND year = @y`;
         const checkResult = await pool.request()
@@ -720,6 +770,7 @@ async function startServer() {
   app.post("/api/students", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const s = req.body;
       const id = crypto.randomUUID();
       
@@ -764,6 +815,7 @@ async function startServer() {
   app.put("/api/students/:id", async (req, res) => {
     try {
       if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
       const { id } = req.params;
       const s = req.body;
       
@@ -1110,6 +1162,31 @@ async function startServer() {
         message: `Excel import failed: ${err instanceof Error ? err.message : String(err)}`, 
         error: String(err) 
       });
+    }
+  });
+
+  // Dashboard Stats Route
+  app.get("/api/dashboard-stats", async (req, res) => {
+    try {
+      if (!pool || !pool.connected) await connectToDb();
+      if (!pool) return res.status(503).json({ message: "Database connection not available" });
+
+      const stats = await pool.request().query(`
+        SELECT 
+          (SELECT COUNT(*) FROM Students WHERE status = 'Active') as activeStudents,
+          (SELECT ISNULL(SUM(amount), 0) FROM Fees WHERE status = 'Paid') as totalCollected,
+          (SELECT ISNULL(SUM(amount), 0) FROM Fees WHERE status = 'Unpaid') as totalOutstanding
+      `);
+
+      const data = stats.recordset[0];
+      res.json({
+        activeStudents: data.activeStudents,
+        totalCollected: data.totalCollected,
+        totalOutstanding: data.totalOutstanding
+      });
+    } catch (err) {
+      console.error("Error fetching dashboard stats:", err);
+      res.status(500).json({ message: "Error fetching dashboard stats", error: err instanceof Error ? err.message : String(err) });
     }
   });
 

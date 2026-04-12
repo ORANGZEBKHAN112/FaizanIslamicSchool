@@ -38,66 +38,75 @@ export default function Dashboard({ user }: DashboardProps) {
   const [stats, setStats] = useState({
     campuses: 0,
     students: 0,
-    pendingFees: 0,
-    defaulters: 0,
+    collectedFees: 0,
+    outstandingAmount: 0,
     onlineCollections: 0
   });
 
   const [feeData, setFeeData] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Simulate loading for skeleton effect
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const unsubCampuses = dataService.subscribe('campuses', (data: Campus[]) => {
-        setStats(prev => ({ ...prev, campuses: data.length }));
-      });
-
-      const unsubStudents = dataService.subscribe('students', (data: Student[]) => {
-        setStats(prev => ({ ...prev, students: data.length }));
-      });
-
-      const unsubTransactions = dataService.subscribe('transactions', (data: Transaction[]) => {
-        const online = data.filter(t => t.status === 'Success').reduce((acc, t) => acc + t.amount, 0);
-        setStats(prev => ({ ...prev, onlineCollections: online }));
+      setDbError(null);
+      
+      try {
+        // Fetch real-time stats from the new endpoint
+        const dashboardStats = await dataService.getAll('dashboard-stats');
+        const statsData = Array.isArray(dashboardStats) ? dashboardStats[0] : dashboardStats;
         
-        // Add to recent activity - replace instead of appending to avoid duplicates during polling
-        const activities = data.slice(-5).reverse().map(t => ({
-          id: t.id,
-          type: 'Payment',
-          title: `Payment of Rs. ${t.amount}`,
-          time: new Date(t.transactionDate).toLocaleTimeString(),
-          icon: CreditCard,
-          color: 'text-green-500'
-        }));
-        setRecentActivity(activities);
-      });
+        if (statsData) {
+          setStats(prev => ({
+            ...prev,
+            students: statsData.activeStudents || 0,
+            collectedFees: statsData.totalCollected || 0,
+            outstandingAmount: statsData.totalOutstanding || 0
+          }));
+        }
 
-      const unsubVouchers = dataService.subscribe('fees', (data: Fee[]) => {
-        const pending = data.filter(v => v.status === 'Unpaid').length;
-        const totalPendingAmount = data.filter(v => v.status === 'Unpaid').reduce((acc, curr) => acc + curr.amount, 0);
-        setStats(prev => ({ ...prev, pendingFees: totalPendingAmount, defaulters: pending }));
-        
-        const monthlyData = data.reduce((acc: any, curr) => {
-          const month = curr.month;
-          if (!acc[month]) acc[month] = { month: `Month ${month}`, collected: 0, pending: 0 };
-          if (curr.status === 'Paid') acc[month].collected += curr.amount;
-          else acc[month].pending += curr.amount;
-          return acc;
-        }, {});
-        setFeeData(Object.values(monthlyData));
-      });
+        const unsubCampuses = dataService.subscribe('campuses', (data: Campus[]) => {
+          setStats(prev => ({ ...prev, campuses: data.length }));
+        });
 
-      setLoading(false);
-      return () => {
-        unsubCampuses();
-        unsubStudents();
-        unsubTransactions();
-        unsubVouchers();
-      };
+        const unsubTransactions = dataService.subscribe('transactions', (data: Transaction[]) => {
+          const online = data.filter(t => t.status === 'Success').reduce((acc, t) => acc + t.amount, 0);
+          setStats(prev => ({ ...prev, onlineCollections: online }));
+          
+          const activities = data.slice(-5).reverse().map(t => ({
+            id: t.id,
+            type: 'Payment',
+            title: `Payment of Rs. ${t.amount}`,
+            time: new Date(t.transactionDate).toLocaleTimeString(),
+            icon: CreditCard,
+            color: 'text-green-500'
+          }));
+          setRecentActivity(activities);
+        });
+
+        const unsubVouchers = dataService.subscribe('fees', (data: Fee[]) => {
+          const monthlyData = data.reduce((acc: any, curr) => {
+            const month = curr.month;
+            if (!acc[month]) acc[month] = { month: `Month ${month}`, collected: 0, pending: 0 };
+            if (curr.status === 'Paid') acc[month].collected += curr.amount;
+            else acc[month].pending += curr.amount;
+            return acc;
+          }, {});
+          setFeeData(Object.values(monthlyData));
+        });
+
+        setLoading(false);
+        return () => {
+          unsubCampuses();
+          unsubTransactions();
+          unsubVouchers();
+        };
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setDbError('Could not connect to SQL Server. Please check your credentials in the Settings menu.');
+        setLoading(false);
+      }
     };
 
     fetchData();
@@ -105,10 +114,10 @@ export default function Dashboard({ user }: DashboardProps) {
 
   const cards = [
     { title: 'Total Campuses', value: stats.campuses, icon: School, color: 'bg-primary', path: '/campuses' },
-    { title: 'Total Students', value: stats.students, icon: Users, color: 'bg-success', path: '/students' },
-    { title: 'Pending Fees', value: `Rs. ${stats.pendingFees.toLocaleString()}`, icon: CreditCard, color: 'bg-accent', path: '/fees' },
-    { title: 'Fee Defaulters', value: stats.defaulters, icon: AlertCircle, color: 'bg-danger', path: '/fees' },
-    { title: 'Online Payments', value: `Rs. ${stats.onlineCollections.toLocaleString()}`, icon: TrendingUp, color: 'bg-teal-500', path: '/quickpay' },
+    { title: 'Active Students', value: stats.students, icon: Users, color: 'bg-success', path: '/students' },
+    { title: 'Fees Collected', value: `Rs. ${stats.collectedFees.toLocaleString()}`, icon: CreditCard, color: 'bg-teal-500', path: '/fees' },
+    { title: 'Outstanding Amount', value: `Rs. ${stats.outstandingAmount.toLocaleString()}`, icon: AlertCircle, color: 'bg-danger', path: '/fees' },
+    { title: 'Online Payments', value: `Rs. ${stats.onlineCollections.toLocaleString()}`, icon: TrendingUp, color: 'bg-accent', path: '/quickpay' },
   ];
 
   if (loading) {
@@ -130,6 +139,25 @@ export default function Dashboard({ user }: DashboardProps) {
 
   return (
     <div className="space-y-8 pb-12">
+      {dbError && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-6 bg-danger/10 border border-danger/20 rounded-3xl flex items-center gap-4 text-danger"
+        >
+          <AlertCircle className="w-6 h-6 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-black uppercase tracking-widest">Database Connection Error</p>
+            <p className="text-xs font-medium opacity-80">{dbError}</p>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-danger text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-danger/90 transition-colors"
+          >
+            Retry
+          </button>
+        </motion.div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Dashboard</h2>

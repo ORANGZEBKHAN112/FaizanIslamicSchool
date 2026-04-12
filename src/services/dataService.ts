@@ -2,18 +2,32 @@ import axios from 'axios';
 
 const API_BASE_URL = '/api';
 
+// Create a pre-configured axios instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+// Add interceptor for authentication if needed in the future
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 const getEndpoint = (collectionName: string) => {
   const name = collectionName.toLowerCase();
   switch (name) {
-    case 'students': return `${API_BASE_URL}/students`;
-    case 'campuses': return `${API_BASE_URL}/campuses`;
-    case 'classes': return `${API_BASE_URL}/classes`;
-    case 'users': return `${API_BASE_URL}/auth/register`;
+    case 'students': return `/students`;
+    case 'campuses': return `/campuses`;
+    case 'classes': return `/classes`;
+    case 'users': return `/auth/register`;
     case 'fees':
-    case 'feevouchers': return `${API_BASE_URL}/fees`;
-    case 'feestructures': return `${API_BASE_URL}/feestructures`;
-    case 'transactions': return `${API_BASE_URL}/transactions`;
-    default: return `${API_BASE_URL}/${name}`;
+    case 'feevouchers': return `/fees`;
+    case 'feestructures': return `/feestructures`;
+    case 'transactions': return `/transactions`;
+    default: return `/${name}`;
   }
 };
 
@@ -21,7 +35,7 @@ export const dataService = {
   async add(collectionName: string, data: any) {
     try {
       const endpoint = getEndpoint(collectionName);
-      const response = await axios.post(endpoint, data);
+      const response = await api.post(endpoint, data);
       return response.data;
     } catch (error) {
       console.error(`Error adding to ${collectionName}:`, error);
@@ -32,7 +46,7 @@ export const dataService = {
   async update(collectionName: string, id: string, data: any) {
     try {
       const endpoint = `${getEndpoint(collectionName)}/${id}`;
-      await axios.put(endpoint, data);
+      await api.put(endpoint, data);
     } catch (error) {
       console.error(`Error updating ${collectionName}:`, error);
       throw error;
@@ -42,7 +56,7 @@ export const dataService = {
   async delete(collectionName: string, id: string) {
     try {
       const endpoint = `${getEndpoint(collectionName)}/${id}`;
-      await axios.delete(endpoint);
+      await api.delete(endpoint);
     } catch (error) {
       console.error(`Error deleting from ${collectionName}:`, error);
       throw error;
@@ -52,7 +66,7 @@ export const dataService = {
   async getAll(collectionName: string, params?: any) {
     try {
       const endpoint = getEndpoint(collectionName);
-      const response = await axios.get(endpoint, { params });
+      const response = await api.get(endpoint, { params });
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error(`Error fetching from ${collectionName}:`, error);
@@ -80,7 +94,7 @@ export const dataService = {
 
   async fetchGenerateFees() {
     try {
-      const response = await axios.post(`${API_BASE_URL}/generate-monthly-fees`);
+      const response = await api.post(`/generate-monthly-fees`);
       return response.data;
     } catch (error) {
       console.error('Error generating fees:', error);
@@ -91,7 +105,7 @@ export const dataService = {
   async upload(collectionName: string, formData: FormData) {
     try {
       const endpoint = getEndpoint(collectionName);
-      const response = await axios.post(endpoint, formData, {
+      const response = await api.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

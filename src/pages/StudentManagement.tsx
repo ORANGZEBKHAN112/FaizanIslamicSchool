@@ -223,7 +223,11 @@ export default function StudentManagement() {
       unsub();
     } catch (error: any) {
       console.error('Import failed:', error);
-      toast.error(error.response?.data?.message || 'Failed to import students', { id: toastId });
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to import students';
+      toast.error(errorMessage, { 
+        id: toastId,
+        description: errorMessage.includes('SQL Server') ? 'Please check your database credentials in the Settings menu.' : undefined
+      });
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
