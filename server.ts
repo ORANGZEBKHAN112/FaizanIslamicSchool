@@ -67,10 +67,10 @@ const getVal = (row: any, ...keys: string[]) => {
 
 // SQL Server Configuration
 let sqlConfig: sql.config = {
-  user: process.env.SQL_USER || "sa",
-  password: process.env.SQL_PASSWORD || "Nimda@2526$",
-  database: process.env.SQL_DATABASE || "testdb12",
-  server: process.env.SQL_SERVER || "51.79.177.9",
+  user: process.env.SQL_USER || "", // Empty for Windows Auth/Integrated Security
+  password: process.env.SQL_PASSWORD || "",
+  database: process.env.SQL_DATABASE || "FaizanIslamincDb",
+  server: process.env.SQL_SERVER || "(localdb)\\MSSQLLocalDB",
   port: parseInt(process.env.SQL_PORT || "1433"),
   pool: {
     max: 10,
@@ -78,8 +78,9 @@ let sqlConfig: sql.config = {
     idleTimeoutMillis: 30000
   },
   options: {
-    encrypt: process.env.SQL_ENCRYPT === "true" || true,
-    trustServerCertificate: process.env.SQL_TRUST_SERVER_CERTIFICATE === "true" || true
+    encrypt: true,
+    trustServerCertificate: true,
+    enableArithAbort: true
   }
 };
 
@@ -99,24 +100,34 @@ if (fs.existsSync(appSettingsPath)) {
         const k = key.trim().toLowerCase();
         const v = value.trim();
         
-        if (k === 'server' || k === 'data source') {
-          if (v.includes('\\')) {
-            sqlConfig.server = v.split('\\')[0];
-            // LocalDB or named instances might need more complex handling in tedious
-          } else {
-            sqlConfig.server = v;
-          }
+        if (k === 'server' || k === 'data source' || k === 'datasource') {
+          sqlConfig.server = v;
         }
         if (k === 'database' || k === 'initial catalog') sqlConfig.database = v;
         if (k === 'user id' || k === 'uid') sqlConfig.user = v;
         if (k === 'password' || k === 'pwd') sqlConfig.password = v;
-        if (k === 'trusted_connection' && v.toLowerCase() === 'true') {
-          sqlConfig.options.trustServerCertificate = true;
-        }
+        if (k === 'encrypt') sqlConfig.options.encrypt = v.toLowerCase() === 'true';
+        if (k === 'trustservercertificate') sqlConfig.options.trustServerCertificate = v.toLowerCase() === 'true';
       });
     }
   } catch (err) {
     console.error("Error parsing appsettings.json:", err);
+  }
+}
+
+async function testConnection() {
+  try {
+    console.log(`Testing connection to ${sqlConfig.server} / ${sqlConfig.database}...`);
+    const testPool = await sql.connect(sqlConfig);
+    const result = await testPool.request().query("SELECT 1 as connected");
+    if (result.recordset[0].connected === 1) {
+      console.log("✅ Database connection test successful!");
+    }
+    await testPool.close();
+  } catch (err) {
+    console.error("❌ Database connection test failed!");
+    console.error("Error details:", err instanceof Error ? err.message : String(err));
+    console.log("Note: (localdb) usually only works on Windows with SQL Server LocalDB installed.");
   }
 }
 
@@ -188,6 +199,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 async function startServer() {
   await connectToDb();
+  await testConnection();
   const app = express();
   const PORT = 3000;
 
