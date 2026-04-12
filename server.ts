@@ -99,8 +99,47 @@ async function connectToDb() {
   try {
     pool = await sql.connect(sqlConfig);
     console.log("Connected to Remote MSSQL");
+    await seedAdmin();
   } catch (err) {
     console.error("Database connection failed:", err);
+  }
+}
+
+async function seedAdmin() {
+  try {
+    const username = "admin";
+    const password = "admin123";
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const result = await pool.request()
+      .input("username", username)
+      .query("SELECT id FROM Users WHERE username = @username");
+      
+    if (result.recordset.length === 0) {
+      console.log("Seeding admin user...");
+      await pool.request()
+        .input("id", crypto.randomUUID())
+        .input("fullName", "Super Admin")
+        .input("username", username)
+        .input("email", "admin@faizan.com")
+        .input("passwordHash", hashedPassword)
+        .input("role", "Super Admin")
+        .query(`
+          INSERT INTO Users (id, fullName, username, email, passwordHash, role, isActive, createdOn)
+          VALUES (@id, @fullName, @username, @email, @passwordHash, @role, 1, GETDATE())
+        `);
+      console.log("Admin user seeded successfully.");
+    } else {
+      // Update password hash just in case it's wrong (like the placeholder in schema.sql)
+      console.log("Updating admin password hash...");
+      await pool.request()
+        .input("username", username)
+        .input("passwordHash", hashedPassword)
+        .query("UPDATE Users SET passwordHash = @passwordHash WHERE username = @username");
+      console.log("Admin password updated successfully.");
+    }
+  } catch (err) {
+    console.error("Error seeding admin:", err);
   }
 }
 
