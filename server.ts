@@ -146,7 +146,24 @@ let pool: sql.ConnectionPool;
 async function connectToDb() {
   try {
     pool = await sql.connect(sqlConfig);
-    console.log("Connected to Remote MSSQL");
+    console.log("Connected to MSSQL");
+    
+    // Ensure outstandingFees column exists in Students table
+    try {
+      await pool.request().query(`
+        IF NOT EXISTS (
+          SELECT * FROM sys.columns 
+          WHERE object_id = OBJECT_ID('Students') AND name = 'outstandingFees'
+        )
+        BEGIN
+          ALTER TABLE Students ADD outstandingFees DECIMAL(18, 2) DEFAULT 0;
+        END
+      `);
+      console.log("Verified Students table schema (outstandingFees column)");
+    } catch (schemaErr) {
+      console.error("Error verifying Students schema:", schemaErr);
+    }
+
     await seedAdmin();
   } catch (err) {
     console.error("Database connection failed:", err);
