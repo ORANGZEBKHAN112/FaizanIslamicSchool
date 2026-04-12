@@ -95,6 +95,8 @@ export interface Fee {
   studentId: string;
   studentName?: string;
   rollNumber?: string;
+  className?: string;
+  outstandingFees?: number;
   amount: number;
   month: number;
   year: number;

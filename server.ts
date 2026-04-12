@@ -163,15 +163,25 @@ async function connectToDb() {
     pool = await sql.connect(sqlConfig);
     console.log("Connected to MSSQL");
     
-    // Ensure outstandingFees column exists in Students table
+    // Ensure outstanding_fees column exists in Students table
     try {
       await pool.request().query(`
         IF NOT EXISTS (
           SELECT * FROM sys.columns 
-          WHERE object_id = OBJECT_ID('Students') AND name = 'outstandingFees'
+          WHERE object_id = OBJECT_ID('Students') AND name = 'outstanding_fees'
         )
         BEGIN
-          ALTER TABLE Students ADD outstandingFees DECIMAL(18, 2) DEFAULT 0;
+          IF EXISTS (
+            SELECT * FROM sys.columns 
+            WHERE object_id = OBJECT_ID('Students') AND name = 'outstandingFees'
+          )
+          BEGIN
+            EXEC sp_rename 'Students.outstandingFees', 'outstanding_fees', 'COLUMN';
+          END
+          ELSE
+          BEGIN
+            ALTER TABLE Students ADD outstanding_fees DECIMAL(18, 2) DEFAULT 0;
+          END
         END
 
         IF OBJECT_ID('Transactions', 'U') IS NOT NULL
@@ -291,7 +301,7 @@ async function startServer() {
           c.city AS city,
           cl.class_name AS className,
           cl.section_name AS sectionName,
-          s.outstandingFees,
+          s.outstanding_fees AS outstandingFees,
           'Physical Campus' AS campusType
         FROM Students s
         LEFT JOIN Campuses c ON s.campus_id = c.id
@@ -569,9 +579,12 @@ async function startServer() {
           CONVERT(VARCHAR, f.created_at, 23) AS createdAt,
           s.student_name AS studentName,
           s.admission_no AS rollNumber,
-          s.campus_id AS campusId
+          s.campus_id AS campusId,
+          s.outstanding_fees AS outstandingFees,
+          c.class_name AS className
         FROM Fees f
         JOIN Students s ON f.student_id = s.id
+        LEFT JOIN Classes c ON s.class_id = c.id
         ORDER BY f.created_at DESC
       `;
       
@@ -733,7 +746,7 @@ async function startServer() {
           INSERT INTO Students (
             id, campus_id, class_id, admission_no, registration_no, gr_no, 
             student_name, father_name, father_cnic, father_mobile, dob, 
-            admission_date, gender, address, city, batch_no, status, outstandingFees
+            admission_date, gender, address, city, batch_no, status, outstanding_fees
           ) VALUES (
             @id, @campus_id, @class_id, @admission_no, @registration_no, @gr_no, 
             @student_name, @father_name, @father_cnic, @father_mobile, @dob, 
@@ -791,7 +804,7 @@ async function startServer() {
             city = @city,
             batch_no = @batch_no,
             status = @status,
-            outstandingFees = @outstanding_fees
+            outstanding_fees = @outstanding_fees
           WHERE id = @id
         `);
       
@@ -893,7 +906,7 @@ async function startServer() {
             .query(`INSERT INTO Students (
               id, admission_no, registration_no, gr_no, student_name, father_name, 
               father_cnic, father_mobile, dob, admission_date, gender, address, 
-              campus_id, class_id, batch_no, status, outstandingFees
+              campus_id, class_id, batch_no, status, outstanding_fees
             ) VALUES (
               @id, @admission_no, @registration_no, @gr_no, @student_name, @father_name, 
               @father_cnic, @father_mobile, @dob, @admission_date, @gender, @address, 
@@ -1062,7 +1075,7 @@ async function startServer() {
             .query(`INSERT INTO Students (
               id, admission_no, registration_no, gr_no, student_name, father_name, 
               father_cnic, father_mobile, dob, admission_date, gender, address, city,
-              campus_id, class_id, batch_no, status, outstandingFees
+              campus_id, class_id, batch_no, status, outstanding_fees
             ) VALUES (
               @sId, @admission_no, @registration_no, @gr_no, @student_name, @father_name, 
               @father_cnic, @father_mobile, @dob, @admission_date, @gender, @address, @city,

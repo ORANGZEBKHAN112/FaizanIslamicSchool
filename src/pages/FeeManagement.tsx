@@ -139,7 +139,8 @@ export default function FeeManagement() {
       ['Exam Fee', `Rs. ${structure?.examFee?.toLocaleString() || '0'}`],
       ['Transport Fee', `Rs. ${structure?.transportFee?.toLocaleString() || '0'}`],
       ['Misc. Fee', `Rs. ${structure?.miscFee?.toLocaleString() || '0'}`],
-      [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.amount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
+      ['Previous Arrears', `Rs. ${voucher.outstandingFees?.toLocaleString() || '0'}`],
+      [{ content: 'Total Payable', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${(voucher.amount + (voucher.outstandingFees || 0)).toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
     ];
 
     autoTable(doc, {
@@ -197,7 +198,8 @@ export default function FeeManagement() {
         ['Exam Fee', `Rs. ${structure?.examFee?.toLocaleString() || '0'}`],
         ['Transport Fee', `Rs. ${structure?.transportFee?.toLocaleString() || '0'}`],
         ['Misc. Fee', `Rs. ${structure?.miscFee?.toLocaleString() || '0'}`],
-        [{ content: 'Total Amount', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${voucher.amount.toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
+        ['Previous Arrears', `Rs. ${voucher.outstandingFees?.toLocaleString() || '0'}`],
+        [{ content: 'Total Payable', styles: { fontStyle: 'bold' as const } }, { content: `Rs. ${(voucher.amount + (voucher.outstandingFees || 0)).toLocaleString()}`, styles: { fontStyle: 'bold' as const } }],
       ];
 
       autoTable(doc, {
@@ -381,16 +383,16 @@ export default function FeeManagement() {
               <form onSubmit={handlePayment} className="p-10 space-y-8 bg-white dark:bg-slate-900">
                 <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700 space-y-4">
                   <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                    <span className="text-slate-400">Total Amount</span>
-                    <span className="text-slate-900 dark:text-white">Rs. {selectedVoucher.totalAmount}</span>
+                    <span className="text-slate-400">Monthly Fee</span>
+                    <span className="text-slate-900 dark:text-white">Rs. {selectedVoucher.amount}</span>
                   </div>
                   <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                    <span className="text-slate-400">Already Paid</span>
-                    <span className="text-success">Rs. {selectedVoucher.paidAmount}</span>
+                    <span className="text-slate-400">Previous Arrears</span>
+                    <span className="text-accent">Rs. {selectedVoucher.outstandingFees || 0}</span>
                   </div>
                   <div className="flex justify-between text-sm font-black border-t border-slate-100 dark:border-slate-700 pt-4">
-                    <span className="text-slate-400 uppercase tracking-widest text-[10px]">Remaining</span>
-                    <span className="text-primary text-lg">Rs. {selectedVoucher.totalAmount - selectedVoucher.paidAmount}</span>
+                    <span className="text-slate-400 uppercase tracking-widest text-[10px]">Total Payable</span>
+                    <span className="text-primary text-lg">Rs. {selectedVoucher.amount + (selectedVoucher.outstandingFees || 0)}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -398,7 +400,6 @@ export default function FeeManagement() {
                   <input 
                     type="number" 
                     required 
-                    max={selectedVoucher.totalAmount - selectedVoucher.paidAmount}
                     className="vibrant-input font-black text-primary text-xl" 
                     value={paymentAmount} 
                     onChange={(e) => setPaymentAmount(Number(e.target.value))} 
@@ -468,8 +469,11 @@ export default function FeeManagement() {
               <tr className="bg-slate-50/80 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                 <th className="px-8 py-5">Voucher ID</th>
                 <th className="px-8 py-5">Student</th>
+                <th className="px-8 py-5">Class</th>
                 <th className="px-8 py-5">Month/Year</th>
-                <th className="px-8 py-5">Amount</th>
+                <th className="px-8 py-5">Arrears</th>
+                <th className="px-8 py-5">Current</th>
+                <th className="px-8 py-5">Total</th>
                 <th className="px-8 py-5">Status</th>
                 <th className="px-8 py-5 text-right">Actions</th>
               </tr>
@@ -483,8 +487,13 @@ export default function FeeManagement() {
                       <div className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{voucher.studentName || 'Unknown Student'}</div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{voucher.rollNumber || 'N/A'}</div>
                     </td>
+                    <td className="px-8 py-5">
+                      <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{voucher.className || 'N/A'}</div>
+                    </td>
                     <td className="px-8 py-5 text-sm font-medium text-slate-500 dark:text-slate-400">{voucher.month}/{voucher.year}</td>
-                    <td className="px-8 py-5 font-black text-slate-900 dark:text-white">Rs. {voucher.amount}</td>
+                    <td className="px-8 py-5 font-medium text-accent">Rs. {voucher.outstandingFees || 0}</td>
+                    <td className="px-8 py-5 font-medium text-slate-900 dark:text-white">Rs. {voucher.amount}</td>
+                    <td className="px-8 py-5 font-black text-primary">Rs. {voucher.amount + (voucher.outstandingFees || 0)}</td>
                     <td className="px-8 py-5">
                       {voucher.status === 'Paid' ? (
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-success/10 text-success">
